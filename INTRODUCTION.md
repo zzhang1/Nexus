@@ -25,8 +25,8 @@ Nexus keeps your information in two layers:
 
 ```mermaid
 flowchart LR
-    K[Knowledge/ (Markdown you can read)] -->|indexed into| M[Local search index (database)]
-    M -->|retrieval| A[Answers + plans]
+    K["Knowledge/ (Markdown you can read)"] -->|indexed into| M["Local search index (database)"]
+    M -->|retrieval| A["Answers + plans"]
     A -->|creates/edits| K
 ```
 
@@ -45,11 +45,11 @@ Why this matters:
 ## How It Works (Simple Flow)
 ```mermaid
 flowchart TD
-    A[Drop files into 0_Inbox/] --> B[Nexus reads and converts them]
-    B --> C[Notes stored in Knowledge/]
-    C --> D[Nexus builds/updates the index]
-    D --> E[Ask questions or plan your day]
-    E --> F[Optional: draft deliverables in Outbox/]
+    A["Drop files into 0_Inbox/"] --> B["Nexus reads and converts them"]
+    B --> C["Notes stored in Knowledge/"]
+    C --> D["Nexus builds/updates the index"]
+    D --> E["Ask questions or plan your day"]
+    E --> F["Optional: draft deliverables in Outbox/"]
 ```
 
 ## The Main Processes (What You’ll Actually Do)
@@ -72,13 +72,13 @@ Under PARA, you can create any subfolders you want (e.g., `Taxes/`, `Real_Estate
 
 ```mermaid
 flowchart TB
-    K[Knowledge/] --> P[1_Projects/]
-    K --> A[2_Areas/]
-    K --> R[3_Resources/]
-    K --> X[4_Archive/]
-    A --> A1[Home/]
-    A --> A2[Health/]
-    A --> A3[Finances/]
+    K["Knowledge/"] --> P["1_Projects/"]
+    K --> A["2_Areas/"]
+    K --> R["3_Resources/"]
+    K --> X["4_Archive/"]
+    A --> A1["Home/"]
+    A --> A2["Health/"]
+    A --> A3["Finances/"]
 ```
 
 ### 3) Extract: Turn Notes Into Actions (Without Extra Work)
@@ -107,10 +107,10 @@ Outbox is for ready-to-use artifacts like:
 
 ```mermaid
 flowchart LR
-    Q[You ask for something] --> N[Nexus drafts deliverable]
-    N --> O[Outbox/ (review)]
-    O -->|approve| U[Use/send it]
-    O -->|delete| D[Discard]
+    Q["You ask for something"] --> N["Nexus drafts deliverable"]
+    N --> O["Outbox/ (review)"]
+    O -->|approve| U["Use/send it"]
+    O -->|delete| D["Discard"]
 ```
 
 ## What Questions Can Nexus Answer?

@@ -2,18 +2,25 @@
 
 **Nexus AI** is a command-line personal assistant that turns your static files into a living, intelligent knowledge base. It operates entirely on your local machine, respecting your privacy and ownership of data.
 
-By combining the universal file processing of **Apache Tika**, the version control of **Git**, and the reasoning power of **Large Language Models (LLMs)**, Nexus AI organizes your chaotic "My Documents" folder into a structured, chat-able Markdown library.
+By combining local document processing, Git-based versioning, and Large Language Models (LLMs), Nexus AI organizes your chaotic "My Documents" folder into a structured, chat-able Markdown library.
+
+See `REQUIREMENTS.md` for the MVP scope and acceptance checks.
 
 ---
 
 ## 🚀 Core Features
 
-*   **📥 Smart Ingestion:** Drop PDFs, Excel sheets, Images, or Word docs into your `Inbox`. Nexus extracts the text, summarizes it with AI, and files a clean Markdown version into your knowledge base.
+*   **📥 Smart Ingestion:** Drop PDFs, spreadsheets, images, or docs into `0_Inbox/`. Nexus extracts text, converts it to clean Markdown, and files it into your knowledge base.
 *   **🧠 Context-Aware Chat:** Ask questions like "What was the budget for Project Alpha?" or "Who is the contact for the ACME contract?" Nexus answers based on your actual files.
-*   **🗂️ PARA Organization:** Automatically suggests filing new documents into **Projects**, **Areas**, **Resources**, or **Archive** to keep your digital life MECE (Mutually Exclusive, Collectively Exhaustive).
+*   **🗂️ PARA Organization (Flexible):** Uses PARA at the top level, with user-defined subfolders (e.g., `Taxes/`, `People/`, `Real_Estate/`, `Wealth_Management/`) and guided reorganizations when asked.
 *   **🔗 Mirror Structure:** Keeps your original source files safe in a `Source` directory while maintaining a parallel, pure-Markdown `Knowledge` directory for the AI to work with.
-*   **🛡️ Git-Backed:** Every change—whether by you or the AI—is committed to a local Git repository. You have a complete, undoable history of your knowledge base.
-*   **🔍 Local Intelligence:** Uses a local SQLite database to index your files and build a lightweight Knowledge Graph for instant retrieval.
+*   **✅ Tasks From Anywhere:** Finds tasks, deadlines, and events embedded in your notes and uses them for planning.
+*   **📤 Outbox for Deliverables:** Stages ready-to-use artifacts (email drafts, travel plans, call scripts, calendar invites) in `Outbox/` for review.
+*   **🛡️ Git-Backed Knowledge:** Changes to `Knowledge/` (by you or the AI) are committed to a local Git repository for a complete, undoable history.
+*   **🔍 GraphRAG Index:** Uses a local SQLite + vector index (“map”) derived from your Markdown (“territory”) for fast retrieval.
+*   **🗓️ Time-Aware Assistance:** Understands deadlines, recurring events, and “what should I do today/this week?” queries by tracking time-based metadata and calendar integrations.
+*   **🔌 Extensible Tools:** Connects to calendars, email, contacts, and task systems via MCP or provider APIs as needed.
+*   **🌐 Optional Web Research:** Uses web search as a tool for public facts (e.g., standard deadlines) and persists sourced notes back into `Knowledge/`.
 
 ---
 
@@ -22,12 +29,17 @@ By combining the universal file processing of **Apache Tika**, the version contr
 Nexus AI is built with a modular, API-first philosophy using Python 3.10+.
 
 *   **CLI:** Built with `typer` and `rich` for a beautiful terminal experience.
-*   **LLM Engine:** Uses `litellm` to connect to OpenAI, Anthropic, or local models (Ollama).
-*   **Extraction:** Wraps `tika-python` (Apache Tika) for industrial-grade file parsing.
+*   **LLM Engine:** Uses `litellm`, defaulting to OpenRouter (configurable for other providers/models).
+*   **Extraction:** Uses `markitdown` for text extraction (pluggable).
 *   **Storage:**
     *   **Unstructured:** Standard Markdown files (`.md`) with YAML front-matter.
     *   **Structured:** SQLite for file maps, caching, and entity relationships.
     *   **Version Control:** `GitPython` for automated repository management.
+*   **Time Awareness:** Stores deadlines, dates, and recurrence in structured metadata and can sync with external calendars via MCP or provider APIs.
+*   **Adaptive Defaults:** Infers tags/context from folder structure; optional `Knowledge/**/.nexus.yaml` files add defaults without forcing manual tagging.
+*   **Safety Posture:** Integrations start read-only; write actions are proposed/staged as deliverables unless explicitly enabled.
+*   **Tooling:** External capabilities (calendar/email/web search) are exposed as tools and can be added incrementally.
+*   **Interfaces:** MVP starts as a CLI; a web app is planned after core workflows stabilize.
 
 ---
 
@@ -36,7 +48,6 @@ Nexus AI is built with a modular, API-first philosophy using Python 3.10+.
 ### Prerequisites
 *   Python 3.10 or higher
 *   Git installed and available in your terminal
-*   Java Runtime Environment (required for Apache Tika)
 
 ### Steps
 
@@ -60,9 +71,10 @@ Nexus AI is built with a modular, API-first philosophy using Python 3.10+.
 4.  **Environment Setup:**
     Create a `.env` file in the project root to store your API keys:
     ```bash
-    OPENAI_API_KEY=sk-...
-    # or
-    ANTHROPIC_API_KEY=sk-...
+    OPENROUTER_API_KEY=sk-...
+    # optional alternatives
+    # OPENAI_API_KEY=sk-...
+    # ANTHROPIC_API_KEY=sk-...
     ```
 
 ---
@@ -90,6 +102,10 @@ Now, simply ask a question:
 ```bash
 nexus chat "Summarize the key action items from the meeting notes I just added."
 ```
+You can also ask time-based questions:
+```bash
+nexus chat "What should I do today?"
+```
 
 ---
 
@@ -99,7 +115,7 @@ When you run `init`, Nexus creates this structure on your computer:
 
 ```text
 /Your_Root_Folder/
-├── .assistant/             # Database, Config, Logs (Hidden)
+├── .assistant/             # Database, Config, Preferences, Logs (Hidden)
 ├── 0_Inbox/                # Drop new files here
 ├── Source/                 # Your ORIGINAL files (Immutable Archive)
 ├── Knowledge/              # AI-Managed Markdown Files (Git Repo)
@@ -107,5 +123,6 @@ When you run `init`, Nexus creates this structure on your computer:
 │   ├── 2_Areas/            # Ongoing responsibilities
 │   ├── 3_Resources/        # Reference materials
 │   └── 4_Archive/          # Completed projects
+├── Outbox/                 # Draft actions awaiting review
 └── Archive/                # Processed source files (Mirrors Knowledge structure)
 ```

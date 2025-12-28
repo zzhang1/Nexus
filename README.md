@@ -77,6 +77,19 @@ Nexus AI is built with a modular, API-first philosophy using Python 3.10+.
     # ANTHROPIC_API_KEY=sk-...
     ```
 
+### LLM Providers (OpenRouter / OpenAI / Ollama)
+Configure the provider in `.assistant/config.yaml`:
+```yaml
+llm:
+  provider: openrouter   # openrouter | openai | ollama
+  model: anthropic/claude-3.5-sonnet
+  # base_url: http://localhost:11434   # required for ollama if non-default
+```
+Notes:
+- **OpenRouter** uses `OPENROUTER_API_KEY`.
+- **OpenAI** uses `OPENAI_API_KEY`.
+- **Ollama** runs locally and needs no API key (default base URL: `http://localhost:11434`).
+
 ---
 
 ## 🚦 Getting Started

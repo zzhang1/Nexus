@@ -5,6 +5,7 @@ from pathlib import Path
 
 from litellm import completion
 
+from nexus_ai.core.config import load_config, resolve_llm_settings
 from nexus_ai.core.db import NexusDb
 from nexus_ai.core.planner import build_plan
 from nexus_ai.core.workspace import Workspace
@@ -39,8 +40,10 @@ def run_chat(ws: Workspace, *, query: str) -> str:
         context_lines.append(f"FILE: {h['path']}\n{h['content']}".strip())
     context = "\n\n---\n\n".join(context_lines)
 
-    api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
+    cfg = load_config(ws.paths.config_yaml)
+    llm_settings = resolve_llm_settings(cfg.llm)
+    api_key = os.getenv(llm_settings["api_key_env"]) if llm_settings.get("api_key_env") else None
+    if not api_key and not llm_settings["model"].startswith("ollama/"):
         # Offline-ish fallback: show retrieved chunks.
         return (
             "LLM not configured (set OPENROUTER_API_KEY). Here are the most relevant excerpts:\n\n"
@@ -48,12 +51,9 @@ def run_chat(ws: Workspace, *, query: str) -> str:
         )
 
     # Let litellm pick up provider auth from env vars.
-    from nexus_ai.core.config import load_config
-
-    cfg = load_config(ws.paths.config_yaml)
-    resp = completion(
-        model=cfg.llm.model,
-        messages=[
+    completion_kwargs = {
+        "model": llm_settings["model"],
+        "messages": [
             {
                 "role": "system",
                 "content": (
@@ -63,5 +63,13 @@ def run_chat(ws: Workspace, *, query: str) -> str:
             },
             {"role": "user", "content": f"Question: {query}\n\nContext:\n{context}"},
         ],
+    }
+    if llm_settings.get("base_url"):
+        completion_kwargs["api_base"] = llm_settings["base_url"]
+    if api_key:
+        completion_kwargs["api_key"] = api_key
+
+    resp = completion(
+        **completion_kwargs,
     )
     return resp["choices"][0]["message"]["content"]

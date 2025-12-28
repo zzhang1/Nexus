@@ -10,7 +10,10 @@ from dotenv import load_dotenv
 
 @dataclass(frozen=True)
 class LlmConfig:
-    model: str = "openrouter/anthropic/claude-3.5-sonnet"
+    provider: str = "openrouter"
+    model: str = "anthropic/claude-3.5-sonnet"
+    base_url: str | None = None
+    api_key_env: str | None = None
 
 
 @dataclass(frozen=True)
@@ -45,7 +48,13 @@ def save_yaml(path: Path, data: dict[str, Any]) -> None:
 def load_config(config_path: Path) -> AppConfig:
     load_dotenv(override=False)
     data = load_yaml(config_path)
-    llm = LlmConfig(model=(data.get("llm", {}) or {}).get("model", LlmConfig().model))
+    llm_raw = data.get("llm", {}) or {}
+    llm = LlmConfig(
+        provider=str(llm_raw.get("provider", LlmConfig().provider)),
+        model=str(llm_raw.get("model", LlmConfig().model)),
+        base_url=llm_raw.get("base_url"),
+        api_key_env=llm_raw.get("api_key_env"),
+    )
     calendar = CalendarConfig(ics_paths=tuple((data.get("calendar", {}) or {}).get("ics_paths", ()) or ()))
     return AppConfig(llm=llm, calendar=calendar)
 
@@ -63,10 +72,43 @@ def load_preferences(preferences_path: Path) -> Preferences:
 
 def default_config_dict() -> dict[str, Any]:
     return {
-        "llm": {"model": LlmConfig().model},
+        "llm": {
+            "provider": LlmConfig().provider,
+            "model": LlmConfig().model,
+            "base_url": LlmConfig().base_url,
+            "api_key_env": LlmConfig().api_key_env,
+        },
         "calendar": {"ics_paths": []},
         "integrations": {"mode": "read_only"},
     }
+
+
+def resolve_llm_settings(llm: LlmConfig) -> dict[str, str | None]:
+    provider = llm.provider.lower()
+    model = llm.model
+
+    if "/" not in model:
+        if provider == "openrouter":
+            model = f"openrouter/{model}"
+        elif provider == "openai":
+            model = f"openai/{model}"
+        elif provider == "ollama":
+            model = f"ollama/{model}"
+
+    api_key_env = llm.api_key_env
+    if not api_key_env:
+        if provider == "openrouter":
+            api_key_env = "OPENROUTER_API_KEY"
+        elif provider == "openai":
+            api_key_env = "OPENAI_API_KEY"
+        elif provider == "ollama":
+            api_key_env = None
+
+    base_url = llm.base_url
+    if provider == "ollama" and not base_url:
+        base_url = "http://localhost:11434"
+
+    return {"model": model, "api_key_env": api_key_env, "base_url": base_url}
 
 
 def default_preferences_dict() -> dict[str, Any]:
@@ -74,4 +116,3 @@ def default_preferences_dict() -> dict[str, Any]:
         "timezone": "UTC",
         "defaults": {"tags": []},
     }
-

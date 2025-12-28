@@ -138,8 +138,8 @@ The application logic must **never** talk directly to ChromaDB or SQLite for ret
 
 *   **Language:** Python 3.10+
 *   **Core API:** `typer` (CLI), `pydantic` (Data Validation).
-*   **LLM Interface:** `litellm` (Unified API for OpenAI/Claude/Ollama).
-*   **Default Provider:** Use OpenRouter by default via `litellm` (configurable for direct OpenAI/Anthropic/Ollama).
+*   **LLM Interface:** `litellm` with modular providers (OpenRouter default; OpenAI and Ollama supported).
+*   **Default Provider:** Use OpenRouter by default via `litellm` (configurable for OpenAI or Ollama in `.assistant/config.yaml`).
 *   **Ingestion:** `markitdown` (Text Extraction).
 *   **Vector/Graph Store:**
     *   *Interface:* Abstract Python Class.

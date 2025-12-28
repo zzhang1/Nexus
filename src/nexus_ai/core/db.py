@@ -186,6 +186,25 @@ class NexusDb:
         with self.connect() as conn:
             conn.execute("DELETE FROM documents WHERE path=?", (path,))
             conn.execute("DELETE FROM tasks WHERE source_path=?", (path,))
+            conn.execute("DELETE FROM events WHERE source_path=?", (path,))
+            conn.execute("DELETE FROM deadlines WHERE source_path=?", (path,))
+
+    def rename_document(self, old_path: str, new_path: str) -> None:
+        """
+        Rename a document path and all dependent rows.
+        """
+        with self.connect() as conn:
+            conn.execute("UPDATE documents SET path=? WHERE path=?", (new_path, old_path))
+            conn.execute("UPDATE chunks SET path=? WHERE path=?", (new_path, old_path))
+            # FTS stores path as an unindexed column; easiest is to rebuild FTS entries by updating chunks.
+            # We force a touch update to trigger chunks_au.
+            conn.execute(
+                "UPDATE chunks SET content=content WHERE path=?",
+                (new_path,),
+            )
+            conn.execute("UPDATE tasks SET source_path=? WHERE source_path=?", (new_path, old_path))
+            conn.execute("UPDATE events SET source_path=? WHERE source_path=?", (new_path, old_path))
+            conn.execute("UPDATE deadlines SET source_path=? WHERE source_path=?", (new_path, old_path))
 
     def get_document(self, path: str) -> dict[str, Any] | None:
         with self.connect() as conn:

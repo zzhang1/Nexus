@@ -5,6 +5,7 @@ from rich.console import Console
 
 from nexus_ai.commands.calendar_cmd import calendar_app
 from nexus_ai.commands.chat_cmd import chat
+from nexus_ai.commands.doctor_cmd import doctor
 from nexus_ai.commands.ingest_cmd import ingest
 from nexus_ai.commands.init_cmd import init
 from nexus_ai.commands.outbox_cmd import outbox_app
@@ -18,6 +19,7 @@ app.command()(init)
 app.command()(ingest)
 app.command()(sync)
 app.command()(chat)
+app.command()(doctor)
 
 app.command("today")(today)
 app.command("week")(week)
@@ -29,4 +31,3 @@ app.add_typer(outbox_app, name="outbox", help="Manage staged deliverables in Out
 
 if __name__ == "__main__":
     app()
-

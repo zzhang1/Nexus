@@ -61,7 +61,7 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
 - [x] Update DB idempotently (reindex modified files, remove deleted rows).
   - reindex modified files
   - remove rows for deleted files
-  - update paths for renames (TODO)
+  - update paths for renames
 - [x] Re-extract tasks/events/deadlines from affected files.
 - [ ] Acceptance check: manually edit a note to add a task line, run `sync`, and verify task appears in planning output.
 

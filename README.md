@@ -101,6 +101,11 @@ Tell Nexus where you want your knowledge base to live. It will create the necess
 nexus init --root ~/Documents/MyNexusKnowledgeBase
 ```
 
+If something isn’t working (missing API keys, bad timezone, etc.), run:
+```bash
+nexus doctor
+```
+
 ### 2. Ingest Documents
 Drag some files (PDFs, receipts, notes) into the `0_Inbox` folder created inside your root directory. Then, tell Nexus to process them:
 

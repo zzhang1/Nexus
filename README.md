@@ -17,7 +17,7 @@ See `REQUIREMENTS.md` for the MVP scope and acceptance checks.
 *   **✅ Tasks From Anywhere:** Finds tasks, deadlines, and events embedded in your notes and uses them for planning.
 *   **📤 Outbox for Deliverables:** Stages ready-to-use artifacts (email drafts, travel plans, call scripts, calendar invites) in `Outbox/` for review.
 *   **🛡️ Git-Backed Knowledge:** Changes to `Knowledge/` (by you or the AI) are committed to a local Git repository for a complete, undoable history.
-*   **🔍 GraphRAG Index:** Uses a local SQLite + vector index (“map”) derived from your Markdown (“territory”) for fast retrieval.
+*   **🔍 Local Retrieval Index (MVP):** Uses a local SQLite full-text index (“map”) derived from your Markdown (“territory”) for fast retrieval.
 *   **🗓️ Time-Aware Assistance:** Understands deadlines, recurring events, and “what should I do today/this week?” queries by tracking time-based metadata and calendar integrations.
 *   **🔌 Extensible Tools:** Connects to calendars, email, contacts, and task systems via MCP or provider APIs as needed.
 *   **🌐 Optional Web Research:** Uses web search as a tool for public facts (e.g., standard deadlines) and persists sourced notes back into `Knowledge/`.
@@ -40,6 +40,8 @@ Nexus AI is built with a modular, API-first philosophy using Python 3.10+.
 *   **Safety Posture:** Integrations start read-only; write actions are proposed/staged as deliverables unless explicitly enabled.
 *   **Tooling:** External capabilities (calendar/email/web search) are exposed as tools and can be added incrementally.
 *   **Interfaces:** MVP starts as a CLI; a web app is planned after core workflows stabilize.
+
+Planned: upgrade retrieval from SQLite full-text search to GraphRAG (hybrid search with embeddings + entity graph). See `Design.md` and `MVP_CHECKLIST.md`.
 
 ---
 

@@ -21,7 +21,7 @@ This is the difference between “AI chat about my stuff” and “an assistant 
 ## The Big Idea: “Territory” vs “Map”
 Nexus keeps your information in two layers:
 - **Territory (what you own):** Markdown files in your `Knowledge/` folder
-- **Map (what Nexus builds):** a fast index (database) that helps Nexus find the right parts of your knowledge quickly
+- **Map (what Nexus builds):** a fast local index (database) that helps Nexus find the right parts of your knowledge quickly
 
 ```mermaid
 flowchart LR
@@ -29,6 +29,8 @@ flowchart LR
     M -->|retrieval| A["Answers + plans"]
     A -->|creates/edits| K
 ```
+
+Today (MVP), the “map” is a fast full-text index. In the future, it can grow into GraphRAG: a hybrid system that combines text search, semantic embeddings, and a knowledge graph for even better recall and reasoning.
 
 Why this matters:
 - If Nexus breaks, your notes are still there, readable.
@@ -125,6 +127,7 @@ Examples:
 - Your knowledge lives as files you own (`Knowledge/`).
 - Integrations (calendar/email/etc.) should start **read-only** by default.
 - When Nexus drafts outbound actions, it stages them in `Outbox/` for review.
+- When Nexus needs to change your knowledge base, it can propose file edits and show a diff before applying changes.
 
 ## Where Your Data Lives (At a Glance)
 Nexus uses a simple workspace folder:
@@ -141,6 +144,8 @@ Nexus is designed to plug into other systems when you want:
 - Email and contacts
 - Task systems
 - Web research for public facts (like standard deadlines), which Nexus can then save back into your knowledge base with sources
+
+Over time, this means your knowledge base doesn’t have to come only from files dropped into `0_Inbox/`. It can also be built from connected sources like email threads, calendar events, and web research—while still being persisted back into `Knowledge/` as durable notes you own.
 
 ## What Nexus Is Not (Yet)
 To keep the first version simple:

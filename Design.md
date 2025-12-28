@@ -134,6 +134,18 @@ The application logic must **never** talk directly to ChromaDB or SQLite for ret
 *   **`search(query)`**: Returns a list of relevant `Document` objects or text chunks based on hybrid search (Vector + Graph traversal).
 *   **`delete_document(path)`**: Handles cleanup of vectors and graph nodes when a file is removed.
 
+### Retrieval Roadmap (MVP → GraphRAG)
+**MVP (current):**
+*   Chunk Markdown content and store it in SQLite + FTS for fast keyword retrieval.
+*   Use structured tables (`tasks/events/deadlines`) for time-aware planning queries.
+
+**Planned GraphRAG upgrade:**
+*   **Vectors:** compute embeddings per chunk and store in a persistent vector store.
+*   **Graph:** extract entities/relationships into `nodes/edges` tables (or a graph backend) linked to source files and chunks.
+*   **Hybrid retrieval:** combine keyword search (FTS), vector similarity, and graph neighborhood expansion.
+*   **Re-ranking + citations:** score retrieved context, dedupe, and produce answers/plans with file citations.
+*   **Rebuildability:** treat embeddings/graph as derived; they can be rebuilt from `Knowledge/` at any time.
+
 ## 2. Tech Stack
 
 *   **Language:** Python 3.10+

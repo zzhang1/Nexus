@@ -109,6 +109,8 @@ nexus ingest
 ```
 *Nexus will read the files, convert them to Markdown, file them into `Knowledge/`, archive the originals, and commit the changes to Git.*
 
+You can also drop entire folders into `0_Inbox/`. Nexus will ingest files recursively and use the folder names as hints for where to file notes (PARA remains the top-level structure).
+
 If you manually edit Markdown files in `Knowledge/`, re-index with:
 ```bash
 nexus sync

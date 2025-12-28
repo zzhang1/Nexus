@@ -46,7 +46,7 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
   - copy/move original into `Source/` and/or `Archive/` (preserve originals)
   - extract text via pluggable extractor (current: PDF/DOCX/text fallback)
   - convert to “clean Markdown” (no summarization requirement)
-  - choose a target path under `Knowledge/` (PARA top-level; create folders as needed)
+  - choose a suggested target path under `Knowledge/` (PARA top-level; user folder structure is a hint, not a rule)
   - write Markdown file with front matter
 - [x] Upsert Markdown content into the local index (chunking + SQLite FTS).
 - [x] Extract time items:

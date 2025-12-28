@@ -96,6 +96,11 @@ nexus ingest
 ```
 *Nexus will read the files, convert them to Markdown, file them into `Knowledge/`, archive the originals, and commit the changes to Git.*
 
+If you manually edit Markdown files in `Knowledge/`, re-index with:
+```bash
+nexus sync
+```
+
 ### 3. Chat with Your Data
 Now, simply ask a question:
 
@@ -106,6 +111,21 @@ You can also ask time-based questions:
 ```bash
 nexus chat "What should I do today?"
 ```
+
+Or use the planning views directly:
+```bash
+nexus today
+nexus week
+nexus month
+```
+
+### 4. Track Tasks in Notes
+Add tasks anywhere in `Knowledge/` using Markdown checkboxes with optional inline metadata:
+```md
+- [ ] File taxes due:2026-04-15 p:P1
+- [ ] Repaint door p:P2 effort:2h
+```
+Then run `nexus sync` and view them with `nexus tasks`.
 
 ---
 

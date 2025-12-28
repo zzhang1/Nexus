@@ -111,15 +111,39 @@ Rules:
     if api_key:
         completion_kwargs["api_key"] = api_key
 
-    resp = completion(
-        **completion_kwargs,
-    )
-    raw = resp["choices"][0]["message"]["content"]
-    try:
-        payload = parse_agent_json(raw)
-    except ActionError:
-        # If the model didn't follow protocol, fall back to raw.
-        return raw
+    messages = list(completion_kwargs["messages"])
+    raw = ""
+    payload: dict | None = None
+    last_error: str | None = None
+    for attempt in range(3):
+        resp = completion(
+            **{k: v for k, v in completion_kwargs.items() if k != "messages"},
+            messages=messages,
+        )
+        raw = resp["choices"][0]["message"]["content"]
+        try:
+            payload = parse_agent_json(raw)
+            break
+        except ActionError as e:
+            last_error = str(e)
+            # Ask the model to try again with strict JSON only.
+            messages.append({"role": "assistant", "content": raw})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "error": "Your previous response did not follow the required protocol.",
+                            "details": last_error,
+                            "instruction": "Reply again with ONLY a single JSON object matching the schema. No markdown, no commentary.",
+                        },
+                        ensure_ascii=False,
+                    ),
+                }
+            )
+
+    if payload is None:
+        return raw if raw else (last_error or "Model response could not be parsed.")
 
     if payload.get("mode") == "actions":
         actions = payload.get("actions", [])
@@ -128,7 +152,36 @@ Rules:
         try:
             result = apply_actions(ws, actions, require_approval=True)
         except Exception as e:
-            return f"Failed to apply actions: {e}"
+            # Give the model one chance to correct invalid actions.
+            messages.append({"role": "assistant", "content": raw})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "error": "The proposed actions failed validation or could not be applied.",
+                            "details": str(e),
+                            "instruction": "Propose a corrected set of actions. Reply with ONLY the JSON object.",
+                        },
+                        ensure_ascii=False,
+                    ),
+                }
+            )
+            try:
+                resp2 = completion(
+                    **{k: v for k, v in completion_kwargs.items() if k != "messages"},
+                    messages=messages,
+                )
+                raw2 = resp2["choices"][0]["message"]["content"]
+                payload2 = parse_agent_json(raw2)
+                if payload2.get("mode") == "actions" and isinstance(payload2.get("actions"), list):
+                    result2 = apply_actions(ws, payload2["actions"], require_approval=True)
+                    return f"{payload2.get('note','')}\n\n{result2}".strip()
+                if payload2.get("mode") == "answer":
+                    return str(payload2.get("answer", raw2))
+                return raw2
+            except Exception as e2:
+                return f"Failed to apply actions: {e}\nRetry failed: {e2}"
         return f"{payload.get('note','')}\n\n{result}".strip()
 
     return str(payload.get("answer", raw))

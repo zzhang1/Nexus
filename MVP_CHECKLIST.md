@@ -84,6 +84,10 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
 - [x] Add planning awareness:
   - route planning-like queries to the planning pipeline (or augment with structured time items)
 - [x] Keep answers grounded and link to files when referencing them.
+- [x] Chat-driven knowledge updates (with approval):
+  - detect when the user is asking to add/change knowledge
+  - propose file ops (create/edit/move/delete) and show diffs
+  - apply changes only after approval, then reindex + commit
 
 ## 8) Outbox (`nexus outbox ...`)
 - [ ] Define Outbox item format (Markdown by default) and metadata (front matter optional):

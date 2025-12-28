@@ -120,6 +120,7 @@ Now, simply ask a question:
 ```bash
 nexus chat "Summarize the key action items from the meeting notes I just added."
 ```
+If your request implies an update to your knowledge base (e.g., “Add that I need to clean the gutters by next month”), Nexus will propose a change, show a diff, and ask for approval before writing to `Knowledge/` and reindexing.
 You can also ask time-based questions:
 ```bash
 nexus chat "What should I do today?"

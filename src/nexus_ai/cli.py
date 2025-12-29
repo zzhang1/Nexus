@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import typer
 from rich.console import Console
 
@@ -14,6 +16,21 @@ from nexus_ai.commands.sync_cmd import sync
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 console = Console()
+
+
+@app.callback()
+def _global_options(
+    ctx: typer.Context,
+    root: Path = typer.Option(
+        None,
+        "--root",
+        "-r",
+        help="Workspace root (optional). If omitted, Nexus auto-discovers from the current directory.",
+    ),
+) -> None:
+    ctx.ensure_object(dict)
+    ctx.obj["root"] = root
+
 
 app.command()(init)
 app.command()(ingest)

@@ -16,6 +16,7 @@ console = Console()
 
 
 def doctor(
+    ctx: typer.Context,
     root: Path = typer.Option(None, "--root", "-r", help="Workspace root (defaults to auto-discovery)."),
 ) -> None:
     """
@@ -28,7 +29,9 @@ def doctor(
     table.add_column("Details")
 
     try:
-        ws = Workspace.from_optional_root(root)
+        from nexus_ai.commands.common import workspace_from_ctx
+
+        ws = workspace_from_ctx(ctx, root)
         table.add_row("Workspace", "OK", str(ws.root))
     except WorkspaceError as e:
         table.add_row("Workspace", "FAIL", str(e))
@@ -86,4 +89,3 @@ def doctor(
         )
 
     console.print(table)
-

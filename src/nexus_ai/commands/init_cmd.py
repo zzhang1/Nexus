@@ -11,6 +11,7 @@ console = Console()
 
 
 def init(
+    ctx: typer.Context,
     root: Path = typer.Option(..., "--root", "-r", exists=False, file_okay=False, dir_okay=True),
 ) -> None:
     """
@@ -23,4 +24,3 @@ def init(
     if created:
         for item in created:
             console.print(f"  - {item}")
-

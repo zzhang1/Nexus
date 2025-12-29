@@ -15,7 +15,9 @@ nexus init --root "$ROOT"
 echo "Meet with Alice about taxes." > "$ROOT/0_Inbox/meeting.txt"
 nexus --root "$ROOT" ingest
 
-cat > "$ROOT/Knowledge/2_Areas/Home/Home.md" <<'EOF'
+mkdir -p "$ROOT/Knowledge/2_Areas/Home"
+TOMORROW="$(date -I -d '+1 day')"
+cat > "$ROOT/Knowledge/2_Areas/Home/Home.md" <<EOF
 ---
 type: note
 title: Home
@@ -26,13 +28,13 @@ tags: [home]
 ---
 
 - [ ] Repaint door p:P2 effort:2h
-- [ ] File taxes due:2026-04-15 p:P1
+- [ ] Clean gutters due:${TOMORROW} p:P1
 EOF
 
 nexus --root "$ROOT" sync
 
 nexus --root "$ROOT" tasks
 nexus --root "$ROOT" today
+nexus --root "$ROOT" week
 
 echo "Smoke OK: $ROOT"
-

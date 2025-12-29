@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from nexus_ai.core.chunking import chunk_text
+from nexus_ai.core.config import load_config
 from nexus_ai.core.db import NexusDb
+from nexus_ai.core.enrich import enrich_markdown
 from nexus_ai.core.extract import extract_text
 from nexus_ai.core.filesystem import atomic_write_text
 from nexus_ai.core.git_ops import commit_all
@@ -101,6 +103,7 @@ def _suggest_knowledge_target(ws: Workspace, inbox_rel: Path) -> Path:
 
 def ingest_inbox(ws: Workspace) -> IngestResult:
     ws.init_workspace()
+    cfg = load_config(ws.paths.config_yaml)
     inbox = ws.paths.inbox_dir
     # Recurse so users can drop whole folders.
     files = [p for p in inbox.rglob("*") if p.is_file()]
@@ -121,12 +124,25 @@ def ingest_inbox(ws: Workspace) -> IngestResult:
         else:
             markdown_body = f"# {f.stem}\n\n{body}\n"
 
+        # Optional enrichment: tags + better formatting (enabled by default).
+        enrich = enrich_markdown(
+            llm=cfg.llm,
+            filename=f.name,
+            source_hint=str(rel.parent),
+            extracted_text=markdown_body,
+            extracted_kind=extracted.kind,
+        )
+        title = enrich.title or f.stem
+        doc_type = enrich.doc_type or "note"
+        tags = enrich.tags or []
+        markdown_body = enrich.markdown_body or markdown_body
+
         markdown = ensure_minimal_front_matter(
             markdown_body,
-            doc_type="note",
-            title=f.stem,
+            doc_type=doc_type,
+            title=title,
             status="active",
-            tags=[],
+            tags=tags,
         )
 
         target = _suggest_knowledge_target(ws, rel)

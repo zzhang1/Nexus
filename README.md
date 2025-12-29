@@ -86,6 +86,10 @@ llm:
   provider: openrouter   # openrouter | openai | ollama
   model: anthropic/claude-3.5-sonnet
   # base_url: http://localhost:11434   # required for ollama if non-default
+  enrich:
+    enabled: true
+    model: openai/gpt-4o-mini   # smaller/cheaper model for tagging + cleanup
+    max_chars: 12000
 ```
 Notes:
 - **OpenRouter** uses `OPENROUTER_API_KEY`.

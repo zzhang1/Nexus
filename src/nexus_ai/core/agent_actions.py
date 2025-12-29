@@ -123,12 +123,26 @@ def propose_actions(ws: Workspace, actions: list[dict[str, Any]]) -> list[Propos
             old = _read_text_or_empty(abs_path)
             if old:
                 raise ActionError(f"Refusing create_file over existing file: {rel}")
+            if rel.lower().endswith(".md"):
+                new = _ensure_markdown_with_front_matter(
+                    maybe_markdown=new,
+                    doc_type=str(action.get("doc_type") or "note"),
+                    title=str(action.get("title") or Path(rel).stem),
+                    tags=[str(t) for t in (action.get("tags") or [])] if isinstance(action.get("tags"), list) else [],
+                )
             changes.append(ProposedChange(rel_path=rel, diff=_unified_diff("", new, rel)))
         elif t == "replace_file":
             rel = _safe_rel_path(str(action["path"]))
             abs_path = _knowledge_abs(ws, rel)
             old = _read_text_or_empty(abs_path)
             new = str(action.get("content", ""))
+            if rel.lower().endswith(".md"):
+                new = _ensure_markdown_with_front_matter(
+                    maybe_markdown=new,
+                    doc_type=str(action.get("doc_type") or "note"),
+                    title=str(action.get("title") or Path(rel).stem),
+                    tags=[str(t) for t in (action.get("tags") or [])] if isinstance(action.get("tags"), list) else [],
+                )
             changes.append(ProposedChange(rel_path=rel, diff=_unified_diff(old, new, rel)))
         elif t == "append_task":
             rel = _safe_rel_path(str(action["path"]))
@@ -200,11 +214,25 @@ def apply_actions(ws: Workspace, actions: list[dict[str, Any]], *, require_appro
             rel = _safe_rel_path(str(action["path"]))
             abs_path = _knowledge_abs(ws, rel)
             content = str(action.get("content", ""))
+            if rel.lower().endswith(".md"):
+                content = _ensure_markdown_with_front_matter(
+                    maybe_markdown=content,
+                    doc_type=str(action.get("doc_type") or "note"),
+                    title=str(action.get("title") or Path(rel).stem),
+                    tags=[str(t) for t in (action.get("tags") or [])] if isinstance(action.get("tags"), list) else [],
+                )
             atomic_write_text(abs_path, content)
         elif t == "replace_file":
             rel = _safe_rel_path(str(action["path"]))
             abs_path = _knowledge_abs(ws, rel)
             content = str(action.get("content", ""))
+            if rel.lower().endswith(".md"):
+                content = _ensure_markdown_with_front_matter(
+                    maybe_markdown=content,
+                    doc_type=str(action.get("doc_type") or "note"),
+                    title=str(action.get("title") or Path(rel).stem),
+                    tags=[str(t) for t in (action.get("tags") or [])] if isinstance(action.get("tags"), list) else [],
+                )
             atomic_write_text(abs_path, content)
         elif t == "append_task":
             rel = _safe_rel_path(str(action["path"]))
@@ -271,4 +299,3 @@ def parse_agent_json(text: str) -> dict[str, Any]:
     if not isinstance(obj, dict):
         raise ActionError("Top-level JSON must be an object.")
     return obj
-

@@ -15,6 +15,11 @@ class LlmConfig:
     base_url: str | None = None
     api_key_env: str | None = None
 
+    # Optional ingestion enrichment (enabled by default).
+    enrich_enabled: bool = True
+    enrich_model: str | None = "openai/gpt-4o-mini"
+    enrich_max_chars: int = 12000
+
 
 @dataclass(frozen=True)
 class CalendarConfig:
@@ -49,11 +54,15 @@ def load_config(config_path: Path) -> AppConfig:
     load_dotenv(override=False)
     data = load_yaml(config_path)
     llm_raw = data.get("llm", {}) or {}
+    enrich_raw = llm_raw.get("enrich", {}) or {}
     llm = LlmConfig(
         provider=str(llm_raw.get("provider", LlmConfig().provider)),
         model=str(llm_raw.get("model", LlmConfig().model)),
         base_url=llm_raw.get("base_url"),
         api_key_env=llm_raw.get("api_key_env"),
+        enrich_enabled=bool(enrich_raw.get("enabled", LlmConfig().enrich_enabled)),
+        enrich_model=enrich_raw.get("model", LlmConfig().enrich_model),
+        enrich_max_chars=int(enrich_raw.get("max_chars", LlmConfig().enrich_max_chars)),
     )
     calendar = CalendarConfig(ics_paths=tuple((data.get("calendar", {}) or {}).get("ics_paths", ()) or ()))
     return AppConfig(llm=llm, calendar=calendar)
@@ -77,6 +86,11 @@ def default_config_dict() -> dict[str, Any]:
             "model": LlmConfig().model,
             "base_url": LlmConfig().base_url,
             "api_key_env": LlmConfig().api_key_env,
+            "enrich": {
+                "enabled": LlmConfig().enrich_enabled,
+                "model": LlmConfig().enrich_model,
+                "max_chars": LlmConfig().enrich_max_chars,
+            },
         },
         "calendar": {"ics_paths": []},
         "integrations": {"mode": "read_only"},

@@ -18,7 +18,6 @@ class LlmConfig:
 
     # Optional ingestion enrichment (enabled by default).
     enrich_enabled: bool = True
-    enrich_model: str | None = "openrouter/xiaomi/mimo-v2-flash:free"
     enrich_max_chars: int = 12000
 
 
@@ -63,7 +62,6 @@ def load_config(config_path: Path) -> AppConfig:
         base_url=llm_raw.get("base_url"),
         api_key_env=llm_raw.get("api_key_env"),
         enrich_enabled=bool(enrich_raw.get("enabled", LlmConfig().enrich_enabled)),
-        enrich_model=enrich_raw.get("model", LlmConfig().enrich_model),
         enrich_max_chars=int(enrich_raw.get("max_chars", LlmConfig().enrich_max_chars)),
     )
     calendar = CalendarConfig(ics_paths=tuple((data.get("calendar", {}) or {}).get("ics_paths", ()) or ()))
@@ -86,12 +84,11 @@ def default_config_dict() -> dict[str, Any]:
         "llm": {
             "provider": LlmConfig().provider,
             "model": LlmConfig().model,
-            "weak_model": LlmConfig().weak_model,
+            "weak_model": LlmConfig().weak_model or "xiaomi/mimo-v2-flash:free",
             "base_url": LlmConfig().base_url,
             "api_key_env": LlmConfig().api_key_env,
             "enrich": {
                 "enabled": LlmConfig().enrich_enabled,
-                "model": LlmConfig().enrich_model,
                 "max_chars": LlmConfig().enrich_max_chars,
             },
         },

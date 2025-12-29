@@ -84,7 +84,7 @@ Configure the provider in `.assistant/config.yaml`:
 ```yaml
 llm:
   provider: openrouter   # openrouter | openai | ollama
-  model: anthropic/claude-3.5-sonnet   # strong model
+  model: xiaomi/mimo-v2-flash:free   # strong model (default)
   weak_model: xiaomi/mimo-v2-flash:free   # weak model for enrichment/tagging
   # base_url: http://localhost:11434   # required for ollama if non-default
   enrich:

@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 @dataclass(frozen=True)
 class LlmConfig:
     provider: str = "openrouter"
-    model: str = "anthropic/claude-3.5-sonnet"
-    weak_model: str | None = None
+    model: str = "xiaomi/mimo-v2-flash:free"
+    weak_model: str | None = "xiaomi/mimo-v2-flash:free"
     base_url: str | None = None
     api_key_env: str | None = None
 
@@ -84,7 +84,7 @@ def default_config_dict() -> dict[str, Any]:
         "llm": {
             "provider": LlmConfig().provider,
             "model": LlmConfig().model,
-            "weak_model": LlmConfig().weak_model or "xiaomi/mimo-v2-flash:free",
+            "weak_model": LlmConfig().weak_model,
             "base_url": LlmConfig().base_url,
             "api_key_env": LlmConfig().api_key_env,
             "enrich": {

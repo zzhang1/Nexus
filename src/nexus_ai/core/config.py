@@ -12,12 +12,13 @@ from dotenv import load_dotenv
 class LlmConfig:
     provider: str = "openrouter"
     model: str = "anthropic/claude-3.5-sonnet"
+    weak_model: str | None = None
     base_url: str | None = None
     api_key_env: str | None = None
 
     # Optional ingestion enrichment (enabled by default).
     enrich_enabled: bool = True
-    enrich_model: str | None = "openai/gpt-4o-mini"
+    enrich_model: str | None = "openrouter/xiaomi/mimo-v2-flash:free"
     enrich_max_chars: int = 12000
 
 
@@ -58,6 +59,7 @@ def load_config(config_path: Path) -> AppConfig:
     llm = LlmConfig(
         provider=str(llm_raw.get("provider", LlmConfig().provider)),
         model=str(llm_raw.get("model", LlmConfig().model)),
+        weak_model=llm_raw.get("weak_model"),
         base_url=llm_raw.get("base_url"),
         api_key_env=llm_raw.get("api_key_env"),
         enrich_enabled=bool(enrich_raw.get("enabled", LlmConfig().enrich_enabled)),
@@ -84,6 +86,7 @@ def default_config_dict() -> dict[str, Any]:
         "llm": {
             "provider": LlmConfig().provider,
             "model": LlmConfig().model,
+            "weak_model": LlmConfig().weak_model,
             "base_url": LlmConfig().base_url,
             "api_key_env": LlmConfig().api_key_env,
             "enrich": {

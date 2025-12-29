@@ -49,7 +49,7 @@ def enrich_markdown(
         return EnrichResult(title=None, doc_type=None, tags=None, markdown_body=None)
 
     # Prefer a cheaper enrichment model if configured; fall back to primary model.
-    enrich_model = llm.enrich_model or llm.model
+    enrich_model = llm.enrich_model or llm.weak_model or llm.model
     if "/" not in enrich_model:
         enrich_model = f"{llm.provider}/{enrich_model}"
     if not enrich_model.startswith(("openrouter/", "openai/", "ollama/")):

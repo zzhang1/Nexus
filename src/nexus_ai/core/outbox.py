@@ -17,9 +17,12 @@ def list_outbox_items(ws: Workspace) -> list[OutboxItemRow]:
     db.init_schema()
 
     # Ensure DB knows about existing files even if they were created manually.
+    existing = {item.rel_path for item in db.list_outbox_items()}
     for p in ws.paths.outbox_dir.rglob("*"):
         if p.is_file():
-            db.upsert_outbox_item(str(p.relative_to(ws.paths.outbox_dir)), "draft")
+            rel = str(p.relative_to(ws.paths.outbox_dir))
+            if rel not in existing:
+                db.upsert_outbox_item(rel, "draft")
     return db.list_outbox_items()
 
 
@@ -40,4 +43,3 @@ def delete_outbox_item(ws: Workspace, rel_path: Path) -> None:
     if file_path.exists():
         file_path.unlink()
     db.delete_outbox_item(rel)
-

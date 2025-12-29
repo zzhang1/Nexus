@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from pathlib import Path
 
 from nexus_ai.core.workspace import Workspace
@@ -12,8 +13,9 @@ def test_build_plan_includes_tasks(tmp_path: Path):
     ws.init_workspace()
 
     note_path = ws.paths.knowledge_dir / "1_Projects" / "Taxes" / "Taxes.md"
+    due = (date.today() + timedelta(days=5)).isoformat()
     markdown = ensure_minimal_front_matter(
-        "- [ ] File taxes due:2026-04-15 p:P1\n",
+        f"- [ ] File taxes due:{due} p:P1\n",
         doc_type="note",
         title="Taxes",
     )
@@ -23,4 +25,3 @@ def test_build_plan_includes_tasks(tmp_path: Path):
     plan = build_plan(ws, mode="month")
     rendered = plan.render().plain
     assert "File taxes" in rendered
-

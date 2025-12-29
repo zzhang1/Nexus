@@ -15,9 +15,11 @@ class FrontMatterDoc:
 
 def split_front_matter(markdown: str) -> FrontMatterDoc:
     text = markdown.lstrip("\ufeff")
-    if not text.startswith("---\n"):
+    # Allow leading whitespace/newlines before front matter for robustness.
+    if not text.lstrip().startswith("---\n"):
         return FrontMatterDoc(front_matter={}, body=markdown)
 
+    text = text.lstrip()
     end = text.find("\n---\n", 4)
     if end == -1:
         return FrontMatterDoc(front_matter={}, body=markdown)
@@ -61,4 +63,3 @@ def ensure_minimal_front_matter(
 
     fm_text = yaml.safe_dump(fm, sort_keys=False).strip()
     return f"---\n{fm_text}\n---\n\n{markdown_body.rstrip()}\n"
-

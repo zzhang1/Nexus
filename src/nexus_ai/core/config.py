@@ -108,6 +108,8 @@ def resolve_llm_settings(llm: LlmConfig) -> dict[str, str | None]:
             model = f"openai/{model}"
         elif provider == "ollama":
             model = f"ollama/{model}"
+    elif provider == "openrouter" and not model.startswith("openrouter/"):
+        model = f"openrouter/{model}"
 
     api_key_env = llm.api_key_env
     if not api_key_env:

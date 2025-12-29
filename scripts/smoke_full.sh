@@ -2,6 +2,14 @@
 set -euo pipefail
 
 ROOT="${1:-/tmp/nexus_full}"
+
+if [[ -f ".env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ".env"
+  set +a
+fi
+
 API_KEY="${OPENROUTER_API_KEY:-}"
 
 rm -rf "$ROOT"

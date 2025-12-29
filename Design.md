@@ -146,6 +146,16 @@ The application logic must **never** talk directly to ChromaDB or SQLite for ret
 *   **Re-ranking + citations:** score retrieved context, dedupe, and produce answers/plans with file citations.
 *   **Rebuildability:** treat embeddings/graph as derived; they can be rebuilt from `Knowledge/` at any time.
 
+## Backlog (Ideas to Consider)
+These are product/UX patterns seen in modern assistants that fit Nexus’s “persistent knowledge + approval-first edits” philosophy.
+
+*   **Global quick access:** a global hotkey / command palette that opens `nexus chat` / `nexus today` instantly (later: tray app).
+*   **Better diff review UX:** side-by-side preview, clearer change summaries, and “accept/reject” per change (trust + safety).
+*   **Auto-organization rules (user-steerable):** translate natural-language rules into `.nexus.yaml` defaults (and/or explicit rule files).
+*   **Dynamic planning / rescheduling (calendar-aware):** propose time blocks and reshuffle when availability or deadlines change (opt-in).
+*   **Web source discovery flow:** “discover sources → show why → user selects → persist sourced note into Knowledge/” (auditable research).
+*   **Domain-specific email workflows:** email ingestion, summarization, and draft replies as tool modules (read-only by default; Outbox for drafts).
+
 ## 2. Tech Stack
 
 *   **Language:** Python 3.10+

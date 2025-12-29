@@ -60,6 +60,10 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
   - retrieve nearest neighbors for new documents
   - have LLM choose destination folder + tags
   - auto-file and record a brief filing note (where/why)
+- [ ] Advanced filing (depends on GraphRAG vectors/graph):
+  - embedding-based nearest neighbor retrieval for filing
+  - explicit pattern detection (e.g., monthly statements, recurring vendors)
+  - re-ranking based on similarity + folder/tag consistency
 
 ## 5) Sync & Drift Handling (`nexus sync`)
 - [x] Scan `Knowledge/` for changes since last index:

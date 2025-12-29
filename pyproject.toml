@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Nexus AI Contributors" }]
 dependencies = [
+  "markitdown[pdf,docx]>=0.1.0",
   "typer>=0.12.3",
   "rich>=13.7.1",
   "pydantic>=2.8.2",
@@ -43,4 +44,3 @@ where = ["src"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-

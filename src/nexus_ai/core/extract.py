@@ -18,6 +18,19 @@ def extract_text(path: Path) -> ExtractResult:
     if ext in {".md", ".markdown", ".txt"}:
         return ExtractResult(text=path.read_text(encoding="utf-8", errors="replace"), kind=ext.lstrip("."))
 
+    # Prefer MarkItDown if installed (best structure preservation). Falls back to local parsers.
+    try:
+        from markitdown import MarkItDown  # type: ignore
+
+        md = MarkItDown(enable_plugins=False)
+        result = md.convert(str(path))
+        text = (result.text_content or "").strip()
+        if text:
+            # MarkItDown returns Markdown-formatted text_content.
+            return ExtractResult(text=text, kind="md")
+    except Exception:
+        pass
+
     if ext == ".pdf":
         reader = PdfReader(str(path))
         parts: list[str] = []
@@ -33,4 +46,3 @@ def extract_text(path: Path) -> ExtractResult:
     # Fallback: best-effort text decode
     data = path.read_bytes()
     return ExtractResult(text=data.decode("utf-8", errors="replace"), kind="binary")
-

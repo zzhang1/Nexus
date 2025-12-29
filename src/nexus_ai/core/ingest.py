@@ -8,6 +8,7 @@ from nexus_ai.core.chunking import chunk_text
 from nexus_ai.core.config import load_config
 from nexus_ai.core.db import NexusDb
 from nexus_ai.core.enrich import enrich_markdown
+from nexus_ai.core.filing import build_filing_summary, simple_neighbors
 from nexus_ai.core.extract import extract_text
 from nexus_ai.core.filesystem import atomic_write_text
 from nexus_ai.core.git_ops import commit_all
@@ -104,6 +105,7 @@ def _suggest_knowledge_target(ws: Workspace, inbox_rel: Path) -> Path:
 def ingest_inbox(ws: Workspace) -> IngestResult:
     ws.init_workspace()
     cfg = load_config(ws.paths.config_yaml)
+    filing_summary = build_filing_summary(ws.paths.knowledge_dir)
     inbox = ws.paths.inbox_dir
     # Recurse so users can drop whole folders.
     files = [p for p in inbox.rglob("*") if p.is_file()]
@@ -125,12 +127,19 @@ def ingest_inbox(ws: Workspace) -> IngestResult:
             markdown_body = f"# {f.stem}\n\n{body}\n"
 
         # Optional enrichment: tags + better formatting (enabled by default).
+        neighbors = simple_neighbors(ws.paths.knowledge_dir, markdown_body)
         enrich = enrich_markdown(
             llm=cfg.llm,
             filename=f.name,
             source_hint=str(rel.parent),
             extracted_text=markdown_body,
             extracted_kind=extracted.kind,
+            knowledge_summary={
+                "folders": filing_summary.folders,
+                "tag_counts": filing_summary.tag_counts,
+                "recent_files": filing_summary.recent_files,
+                "neighbors": neighbors,
+            },
         )
         title = enrich.title or f.stem
         doc_type = enrich.doc_type or "note"
@@ -146,7 +155,29 @@ def ingest_inbox(ws: Workspace) -> IngestResult:
         )
 
         target = _suggest_knowledge_target(ws, rel)
+        if enrich.suggested_rel_path:
+            try:
+                suggested = Path(enrich.suggested_rel_path.strip().lstrip("/"))
+                target = ws.paths.knowledge_dir / suggested
+                target = _unique_path(target.with_suffix(".md"))
+            except Exception:
+                pass
         atomic_write_text(target, markdown)
+
+        # Record a brief filing note (keeps auto-filing auditable).
+        if enrich.filing_note:
+            note_dir = ws.paths.knowledge_dir / "3_Resources" / "Filing_Notes"
+            note_dir.mkdir(parents=True, exist_ok=True)
+            note = f"""---\n"""
+            note += f"type: filing_note\n"
+            note += f"title: Filing note for {target.name}\n"
+            note += f"status: active\n"
+            note += f"---\n\n"
+            note += f"- Source: {rel}\n"
+            note += f"- Destination: {target.relative_to(ws.paths.knowledge_dir)}\n"
+            note += f"- Note: {enrich.filing_note.strip()}\n"
+            note_path = _unique_path(note_dir / f"{_sanitize_name(target.stem)}_filing.md")
+            atomic_write_text(note_path, note)
 
         archive_dst = ws.paths.archive_dir / rel
         archive_dst.parent.mkdir(parents=True, exist_ok=True)

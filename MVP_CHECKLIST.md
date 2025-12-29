@@ -54,6 +54,12 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
   - task lines (`- [ ] ...`) anywhere in Markdown
 - [x] Commit resulting changes to the `Knowledge/` Git repo.
 - [ ] Acceptance check: drop a few files into `0_Inbox/` and confirm Markdown appears in `Knowledge/`, originals are preserved, and DB has rows.
+- [ ] Intelligent filing (LLM-assisted):
+  - inventory `Knowledge/` structure + tags + recent files
+  - detect existing patterns (e.g., statements by bank/month)
+  - retrieve nearest neighbors for new documents
+  - have LLM choose destination folder + tags
+  - auto-file and record a brief filing note (where/why)
 
 ## 5) Sync & Drift Handling (`nexus sync`)
 - [x] Scan `Knowledge/` for changes since last index:

@@ -10,7 +10,7 @@ See `REQUIREMENTS.md` for the MVP scope and acceptance checks.
 
 ## 🚀 Core Features
 
-*   **📥 Smart Ingestion:** Drop PDFs, spreadsheets, images, or docs into `0_Inbox/`. Nexus extracts text, converts it to clean Markdown, and files it into your knowledge base.
+*   **📥 Smart Ingestion:** Drop PDFs, spreadsheets, images, or docs into `0_Inbox/`. Nexus extracts text, converts it to clean Markdown, and auto-files it based on existing Knowledge patterns (with a short filing note).
 *   **🧠 Context-Aware Chat:** Ask questions like "What was the budget for Project Alpha?" or "Who is the contact for the ACME contract?" Nexus answers based on your actual files.
 *   **🗂️ PARA Organization (Flexible):** Uses PARA at the top level, with user-defined subfolders (e.g., `Taxes/`, `People/`, `Real_Estate/`, `Wealth_Management/`) and guided reorganizations when asked.
 *   **🔗 Mirror Structure:** Keeps your original source files safe in a `Source` directory while maintaining a parallel, pure-Markdown `Knowledge` directory for the AI to work with.
@@ -121,6 +121,7 @@ nexus ingest
 *Nexus will read the files, convert them to Markdown, file them into `Knowledge/`, archive the originals, and commit the changes to Git.*
 
 You can also drop entire folders into `0_Inbox/`. Nexus will ingest files recursively and use the folder names as hints for where to file notes (PARA remains the top-level structure).
+When AI enrichment is enabled, Nexus also looks at existing Knowledge folder patterns and similar files to choose a destination and records a brief filing note under `Knowledge/3_Resources/Filing_Notes/`.
 
 If you manually edit Markdown files in `Knowledge/`, re-index with:
 ```bash

@@ -12,6 +12,21 @@ pip install -e .
 
 nexus init --root "$ROOT"
 
+# Disable ingestion enrichment during smoke (keeps it deterministic and avoids requiring API keys).
+python3 - <<PY
+from pathlib import Path
+import yaml
+
+cfg_path = Path("$ROOT") / ".assistant" / "config.yaml"
+data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+llm = data.get("llm", {}) or {}
+enrich = llm.get("enrich", {}) or {}
+enrich["enabled"] = False
+llm["enrich"] = enrich
+data["llm"] = llm
+cfg_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+PY
+
 echo "Meet with Alice about taxes." > "$ROOT/0_Inbox/meeting.txt"
 nexus --root "$ROOT" ingest
 

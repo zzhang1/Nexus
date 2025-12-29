@@ -225,6 +225,13 @@ class NexusDb:
             )
 
     def search_chunks(self, query: str, limit: int = 8) -> list[sqlite3.Row]:
+        # FTS5 is sensitive to punctuation; normalize to tokens.
+        import re
+
+        tokens = re.findall(r"[A-Za-z0-9_]+", query)
+        if not tokens:
+            return []
+        q = " ".join(tokens)
         with self.connect() as conn:
             return conn.execute(
                 """
@@ -234,7 +241,7 @@ class NexusDb:
                 ORDER BY score
                 LIMIT ?
                 """,
-                (query, limit),
+                (q, limit),
             ).fetchall()
 
     def replace_tasks_for_document(self, source_path: str, tasks: Iterable[dict[str, Any]]) -> None:

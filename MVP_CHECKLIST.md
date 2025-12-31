@@ -34,7 +34,7 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
   - `events` (id, title, start_ts, end_ts, timezone, all_day, rrule/recurrence_rule, source, source_id, status)
   - `deadlines` (id, title, due_ts, timezone, source, source_id, status)
 - [x] Create vector store initialization (persisted under `.assistant/vector_store/`). (Placeholder directory only.)
-- [ ] Wrap DB + vector operations behind interfaces used by the app (no direct coupling from CLI handlers).
+- [x] Wrap DB + vector operations behind interfaces used by the app (no direct coupling from CLI handlers).
 - [ ] GraphRAG upgrade (later):
   - add vector embeddings + persistent vector store
   - add entity extraction + graph tables (`nodes`, `edges`)
@@ -53,11 +53,11 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
   - front matter dates (`due`, `scheduled`, `start/end`, `rrule` if present)
   - task lines (`- [ ] ...`) anywhere in Markdown
 - [x] Commit resulting changes to the `Knowledge/` Git repo.
-- [ ] Acceptance check: drop a few files into `0_Inbox/` and confirm Markdown appears in `Knowledge/`, originals are preserved, and DB has rows.
-- [ ] Intelligent filing (LLM-assisted):
+- [x] Acceptance check: drop a few files into `0_Inbox/` and confirm Markdown appears in `Knowledge/`, originals are preserved, and DB has rows.
+- [x] Intelligent filing (LLM-assisted):
   - inventory `Knowledge/` structure + tags + recent files
   - detect existing patterns (e.g., statements by bank/month)
-  - retrieve nearest neighbors for new documents
+  - retrieve nearest neighbors for new documents (heuristic for now; vector-based later)
   - have LLM choose destination folder + tags
   - auto-file and record a brief filing note (where/why)
 - [ ] Advanced filing (depends on GraphRAG vectors/graph):
@@ -73,7 +73,7 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
   - remove rows for deleted files
   - update paths for renames
 - [x] Re-extract tasks/events/deadlines from affected files.
-- [ ] Acceptance check: manually edit a note to add a task line, run `sync`, and verify task appears in planning output.
+- [x] Acceptance check: manually edit a note to add a task line, run `sync`, and verify task appears in planning output.
 
 ## 6) Planning Views (`nexus today|week|month` + `nexus tasks`)
 - [x] Implement `nexus tasks` (default: all open tasks; filters later).
@@ -81,6 +81,7 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
   - pull time-window events/deadlines
   - pull due/overdue tasks and high-priority open tasks
   - output a prioritized list with links back to source notes
+- [x] Recurrence expansion for near-term horizons (RRULE).
 - [ ] Implement “draft time-blocking” rule:
   - only propose time blocks when calendar integration is present OR user provides availability
   - otherwise return list-only
@@ -98,6 +99,9 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
   - detect when the user is asking to add/change knowledge
   - propose file ops (create/edit/move/delete) and show diffs
   - apply changes only after approval, then reindex + commit
+- [x] Avoid no-op task edits (detect duplicates, skip and report “no changes needed”).
+- [x] Improve file selection rules (prefer existing relevant files; ask clarifying questions before creating new files).
+- [x] Add `nexus tidy` for LLM-guided cleanup with approval.
 
 ## 8) Outbox (`nexus outbox ...`)
 - [ ] Define Outbox item format (Markdown by default) and metadata (front matter optional):
@@ -121,8 +125,22 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
   - extract any deadlines found into `deadlines`
 
 ## 10) Docs, Samples, and Validation
-- [ ] Add a small “demo workflow” section to `README.md` once commands exist.
+- [x] Add a small “demo workflow” section to `README.md` once commands exist.
 - [ ] Add a minimal sample dataset or scripted walkthrough (optional).
 - [x] Add smoke tests (or a `scripts/` runner) to verify:
   - init → ingest → sync → today/week → chat
 - [ ] Re-check `REQUIREMENTS.md` acceptance checks and ensure each can be demonstrated.
+
+## 11) LLM-Assisted Territory Management (Post-MVP)
+- [x] LLM-guided pruning/archiving suggestions for stale notes.
+- [ ] File naming + metadata normalization (consistent titles/tags/front matter).
+- [ ] Duplicate content detection + merge suggestions for notes.
+- [ ] Task clustering / project rollups without moving tasks.
+- [ ] Better context routing for new tasks to the most relevant file.
+- [ ] Priority/urgency inference (Eisenhower-style) with user confirmation when stakes are high.
+- [ ] Calendar conflict detection when creating or importing events.
+- [ ] Weekly “what changed” digest from Knowledge Git history.
+- [ ] Auto-refactoring of ad-hoc notes into canonical systems (e.g., Home Maintenance).
+
+## 12) UX & Interaction (Post-MVP)
+- [ ] Persistent chat session mode (REPL-style), maintaining context across turns.

@@ -147,6 +147,13 @@ nexus week
 nexus month
 ```
 
+**Chat intents (formal):** each chat response is classified into one of three modes:
+* **Answer** — informational response grounded in `Knowledge/` (no file changes).
+* **Plan** — time-aware view for `today|week|month`, combining events/deadlines/tasks.
+* **Actions** — structured file edits in `Knowledge/` with diffs + user approval.
+
+This intent model is used both for interactive chat and CLI commands that proxy to chat (e.g., `nexus chat "What should I do today?"` produces a **Plan**).
+
 ### 4. Track Tasks in Notes
 Add tasks anywhere in `Knowledge/` using Markdown checkboxes with optional inline metadata:
 ```md
@@ -155,7 +162,60 @@ Add tasks anywhere in `Knowledge/` using Markdown checkboxes with optional inlin
 ```
 Then run `nexus sync` and view them with `nexus tasks`.
 
+### 5. Recurring Events (Markdown + Chat)
+Recurring events are captured in front matter using RRULE (RFC5545), which is also compatible with Google/Apple calendars.
+Example:
+```yaml
 ---
+type: event
+title: Mow lawn
+start: 2026-01-04T09:00:00-05:00
+duration: 1h
+recurrence: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU"
+---
+```
+The planner expands recurrences within the current window for `today/week/month`.
+
+---
+
+## ✅ Commands (CLI)
+All commands accept `--root` / `-r` to point at a workspace (otherwise auto-discovered).
+
+**Workspace + Index**
+```bash
+nexus init --root /path/to/workspace
+nexus ingest
+nexus sync
+nexus doctor
+```
+
+**Planning & Tasks**
+```bash
+nexus today
+nexus week
+nexus month
+nexus tasks
+```
+
+**Chat + Cleanup**
+```bash
+nexus chat "What should I do today?"
+nexus tidy --focus home
+nexus tidy --stale-days 90
+```
+
+**Calendar**
+```bash
+nexus calendar sync
+```
+
+**Outbox**
+```bash
+nexus outbox list
+nexus outbox open drafts/email.md
+nexus outbox approve drafts/email.md
+nexus outbox delete drafts/email.md
+```
 
 ## 📂 Directory Structure (User Data)
 

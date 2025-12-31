@@ -8,6 +8,7 @@ from litellm import completion
 
 from nexus_ai.core.agent_actions import ActionError, parse_agent_json
 from nexus_ai.core.config import LlmConfig, resolve_llm_settings
+from nexus_ai.core.runtime import ensure_litellm_quiet
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,7 @@ def enrich_markdown(
             filing_note=None,
         )
 
+    ensure_litellm_quiet()
     llm_settings = resolve_llm_settings(llm)
     api_key = os.getenv(llm_settings["api_key_env"]) if llm_settings.get("api_key_env") else None
     if not api_key and not llm_settings["model"].startswith("ollama/"):

@@ -63,12 +63,13 @@ Add a calendar-aware layer in the structured store to support scheduling queries
 
 **Sources of time-aware items:**
 *   Parsed from Markdown front-matter (e.g., `due: 2026-04-15`, `scheduled: 2026-01-10T15:00-05:00`)
+*   Recurring events via RRULE in front matter (e.g., `recurrence: "FREQ=WEEKLY;BYDAY=SA"`), optionally with `duration` when `end` is omitted
 *   Parsed from Markdown task lines anywhere in `Knowledge/` (e.g., `- [ ] File taxes due:2026-04-15 p:P1`)
 *   Imported from integrations (Google Calendar, Outlook, etc.) via MCP or provider APIs
 
 **Query support:**
 *   `today/this week/this month` windows resolved by local timezone
-*   Recurrence expansion for near-term horizons
+*   Recurrence expansion for near-term horizons (RRULE)
 *   Merge “tasks + events + deadlines” for prioritization prompts
 *   Optional time-blocking: propose a draft schedule only when calendar data or user-provided availability is sufficient; otherwise return a prioritized list
 
@@ -155,6 +156,15 @@ These are product/UX patterns seen in modern assistants that fit Nexus’s “pe
 *   **Dynamic planning / rescheduling (calendar-aware):** propose time blocks and reshuffle when availability or deadlines change (opt-in).
 *   **Web source discovery flow:** “discover sources → show why → user selects → persist sourced note into Knowledge/” (auditable research).
 *   **Domain-specific email workflows:** email ingestion, summarization, and draft replies as tool modules (read-only by default; Outbox for drafts).
+
+## Chat Intent Model (Formal)
+All chat interactions resolve to one of three explicit intents, which drives behavior and permissions:
+
+*   **Answer:** Informational response grounded in `Knowledge/` (no file writes).
+*   **Plan:** A time-window view (`today|week|month`) that merges events, deadlines, and tasks.
+*   **Actions:** Structured file edits under `Knowledge/`, always previewed with diffs and requiring user approval.
+
+This intent model allows both free-form chat and CLI commands (`nexus chat ...`) to be deterministic and safe.
 
 ## 2. Tech Stack
 

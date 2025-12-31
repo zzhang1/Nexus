@@ -13,6 +13,7 @@ from nexus_ai.commands.init_cmd import init
 from nexus_ai.commands.outbox_cmd import outbox_app
 from nexus_ai.commands.plan_cmd import today, week, month, tasks
 from nexus_ai.commands.sync_cmd import sync
+from nexus_ai.commands.tidy_cmd import tidy
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 console = Console()
@@ -37,6 +38,7 @@ app.command()(ingest)
 app.command()(sync)
 app.command()(chat)
 app.command()(doctor)
+app.command()(tidy)
 
 app.command("today")(today)
 app.command("week")(week)

@@ -9,10 +9,15 @@ from typing import Any, Iterable
 
 from rich.console import Console
 
+from litellm import completion
+
 from nexus_ai.core.filesystem import atomic_write_text
 from nexus_ai.core.git_ops import commit_all
 from nexus_ai.core.markdown import ensure_minimal_front_matter, split_front_matter
+from nexus_ai.core.config import load_config, resolve_llm_settings
+from nexus_ai.core.runtime import ensure_litellm_quiet
 from nexus_ai.core.sync import sync_knowledge
+from nexus_ai.core.tasks_parse import TASK_RE
 from nexus_ai.core.workspace import Workspace
 
 console = Console()
@@ -94,6 +99,95 @@ def _append_task_to_markdown(existing: str, task_line: str) -> str:
     return body
 
 
+def _strip_task_tokens(body: str) -> str:
+    for token in ["due:", "p:", "effort:", "ctx:"]:
+        body = re.sub(rf"(^|\s){re.escape(token)}[^\s]+", " ", body)
+    body = re.sub(r"[^\w\s]", " ", body)
+    body = re.sub(r"\s+", " ", body).strip().lower()
+    return body
+
+
+def _existing_task_titles(markdown: str) -> list[str]:
+    titles: list[str] = []
+    for line in markdown.splitlines():
+        m = TASK_RE.match(line)
+        if not m:
+            continue
+        body = m.group("body")
+        titles.append(_strip_task_tokens(body))
+    return [t for t in titles if t]
+
+
+def _looks_duplicate_simple(proposed: str, existing_titles: list[str]) -> bool:
+    if not proposed or not existing_titles:
+        return False
+    import difflib
+
+    for title in existing_titles:
+        if title == proposed:
+            return True
+        if difflib.SequenceMatcher(None, title, proposed).ratio() >= 0.9:
+            return True
+    return False
+
+
+def _looks_duplicate_llm(ws: Workspace, proposed: str, existing_titles: list[str]) -> bool:
+    if not existing_titles or not proposed:
+        return False
+    cfg = load_config(ws.paths.config_yaml)
+    ensure_litellm_quiet()
+    llm_settings = resolve_llm_settings(cfg.llm)
+    api_key = os.getenv(llm_settings["api_key_env"]) if llm_settings.get("api_key_env") else None
+    if not api_key and not llm_settings["model"].startswith("ollama/"):
+        return False
+
+    model = cfg.llm.weak_model or cfg.llm.model
+    if "/" not in model:
+        model = f"{cfg.llm.provider}/{model}"
+    if not model.startswith(("openrouter/", "openai/", "ollama/")):
+        model = f"{cfg.llm.provider}/{model}"
+
+    sample = existing_titles[:25]
+    system = """
+You check whether a proposed task duplicates an existing task.
+Return ONLY JSON: {"duplicate": true|false, "match": "optional matching task"}.
+Be strict: mark duplicate only if it is the same task or nearly identical.
+"""
+    user = {"proposed": proposed, "existing": sample}
+    kwargs = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system.strip()},
+            {"role": "user", "content": json.dumps(user, ensure_ascii=False)},
+        ],
+    }
+    if llm_settings.get("base_url"):
+        kwargs["api_base"] = llm_settings["base_url"]
+    if api_key:
+        kwargs["api_key"] = api_key
+    try:
+        resp = completion(**kwargs)
+        raw = resp["choices"][0]["message"]["content"]
+        payload = parse_agent_json(raw)
+        return bool(payload.get("duplicate"))
+    except Exception:
+        return False
+
+
+def _is_duplicate_task(ws: Workspace, existing: str, task_line: str) -> bool:
+    if not existing:
+        return False
+    m = TASK_RE.match(task_line.strip())
+    body = task_line.strip()
+    if m:
+        body = m.group("body")
+    proposed = _strip_task_tokens(body)
+    existing_titles = _existing_task_titles(existing)
+    if _looks_duplicate_simple(proposed, existing_titles):
+        return True
+    return _looks_duplicate_llm(ws, proposed, existing_titles)
+
+
 def _ensure_markdown_with_front_matter(
     *,
     maybe_markdown: str,
@@ -163,6 +257,9 @@ def propose_actions(ws: Workspace, actions: list[dict[str, Any]]) -> list[Propos
                 )
                 new = _append_task_to_markdown(seeded, task)
             else:
+                if _is_duplicate_task(ws, old, task):
+                    changes.append(ProposedChange(rel_path=rel, diff=""))
+                    continue
                 new = _append_task_to_markdown(old, task)
             changes.append(ProposedChange(rel_path=rel, diff=_unified_diff(old, new, rel)))
         elif t == "move_file":
@@ -196,9 +293,14 @@ def apply_actions(ws: Workspace, actions: list[dict[str, Any]], *, require_appro
         return "No actions proposed."
 
     proposed = propose_actions(ws, actions)
+    if not any(change.diff for change in proposed):
+        return "No changes needed (duplicate task detected)."
+
     console.print("[bold]Proposed changes to Knowledge/[/bold]")
     for change in proposed:
-        console.print(change.diff if change.diff else f"(no diff) {change.rel_path}")
+        if not change.diff:
+            continue
+        console.print(change.diff)
         console.print()
 
     if require_approval:
@@ -208,6 +310,7 @@ def apply_actions(ws: Workspace, actions: list[dict[str, Any]], *, require_appro
             return "No changes applied."
 
     # Apply
+    did_change = False
     for action in actions:
         t = str(action.get("type", "")).strip()
         if t == "create_file":
@@ -222,6 +325,7 @@ def apply_actions(ws: Workspace, actions: list[dict[str, Any]], *, require_appro
                     tags=[str(t) for t in (action.get("tags") or [])] if isinstance(action.get("tags"), list) else [],
                 )
             atomic_write_text(abs_path, content)
+            did_change = True
         elif t == "replace_file":
             rel = _safe_rel_path(str(action["path"]))
             abs_path = _knowledge_abs(ws, rel)
@@ -234,6 +338,7 @@ def apply_actions(ws: Workspace, actions: list[dict[str, Any]], *, require_appro
                     tags=[str(t) for t in (action.get("tags") or [])] if isinstance(action.get("tags"), list) else [],
                 )
             atomic_write_text(abs_path, content)
+            did_change = True
         elif t == "append_task":
             rel = _safe_rel_path(str(action["path"]))
             abs_path = _knowledge_abs(ws, rel)
@@ -251,8 +356,11 @@ def apply_actions(ws: Workspace, actions: list[dict[str, Any]], *, require_appro
                 )
                 new = _append_task_to_markdown(seeded, task)
             else:
+                if _is_duplicate_task(ws, old, task):
+                    continue
                 new = _append_task_to_markdown(old, task)
             atomic_write_text(abs_path, new)
+            did_change = True
         elif t == "move_file":
             src = _safe_rel_path(str(action["from"]))
             dst = _safe_rel_path(str(action["to"]))
@@ -260,13 +368,18 @@ def apply_actions(ws: Workspace, actions: list[dict[str, Any]], *, require_appro
             dst_abs = _knowledge_abs(ws, dst)
             dst_abs.parent.mkdir(parents=True, exist_ok=True)
             src_abs.replace(dst_abs)
+            did_change = True
         elif t == "delete_file":
             rel = _safe_rel_path(str(action["path"]))
             abs_path = _knowledge_abs(ws, rel)
             if abs_path.exists():
                 abs_path.unlink()
+                did_change = True
         else:
             raise ActionError(f"Unknown action type: {t}")
+
+    if not did_change:
+        return "No changes applied."
 
     # Re-index and commit.
     sync_knowledge(ws)

@@ -57,6 +57,9 @@ def build_plan(ws: Workspace, *, mode: str) -> Plan:
     deadlines = db.list_deadlines_between(start_iso=start.isoformat(), end_iso=end.isoformat())
     tasks = db.list_tasks(include_completed=False)
 
+    # Expand recurring events within window.
+    events = _expand_recurring_events(events=events, start=start, end=end, tz=tz)
+
     # Filter tasks by due window if due_date exists; also include overdue and P1s.
     today_d = start.date()
     end_d = (end - timedelta(seconds=1)).date()
@@ -89,3 +92,30 @@ def build_plan(ws: Workspace, *, mode: str) -> Plan:
 
     return Plan(title=f"Plan ({mode})", lines=lines)
 
+
+def _expand_recurring_events(*, start: datetime, end: datetime, tz: ZoneInfo, events):
+    from dateutil import rrule
+
+    expanded = []
+    for e in events:
+        row = dict(e) if hasattr(e, "keys") else dict(e)
+        rule = row.get("recurrence_rule")
+        if not rule:
+            expanded.append(row)
+            continue
+        try:
+            start_dt = datetime.fromisoformat(row["start_ts"])
+            if start_dt.tzinfo is None:
+                start_dt = start_dt.replace(tzinfo=tz)
+            r = rrule.rrulestr(rule, dtstart=start_dt)
+            for occ in r.between(start, end, inc=True):
+                expanded.append(
+                    {
+                        **row,
+                        "start_ts": occ.replace(microsecond=0).isoformat(),
+                    }
+                )
+        except Exception:
+            expanded.append(row)
+    expanded.sort(key=lambda x: x.get("start_ts") or "")
+    return expanded

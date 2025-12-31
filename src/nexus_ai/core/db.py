@@ -139,6 +139,48 @@ class NexusDb:
                 except sqlite3.OperationalError:
                     pass
 
+    def _drop_fts(self, conn: sqlite3.Connection) -> None:
+        conn.executescript(
+            """
+            DROP TRIGGER IF EXISTS chunks_ai;
+            DROP TRIGGER IF EXISTS chunks_ad;
+            DROP TRIGGER IF EXISTS chunks_au;
+            DROP TABLE IF EXISTS chunks_fts;
+            """
+        )
+
+    def _create_fts(self, conn: sqlite3.Connection) -> None:
+        conn.executescript(
+            """
+            CREATE VIRTUAL TABLE chunks_fts
+            USING fts5(content, path UNINDEXED, chunk_id UNINDEXED);
+
+            CREATE TRIGGER chunks_ai AFTER INSERT ON chunks BEGIN
+              INSERT INTO chunks_fts(rowid, content, path, chunk_id) VALUES (new.id, new.content, new.path, new.id);
+            END;
+            CREATE TRIGGER chunks_ad AFTER DELETE ON chunks BEGIN
+              INSERT INTO chunks_fts(chunks_fts, rowid, content, path, chunk_id)
+              VALUES ('delete', old.id, old.content, old.path, old.id);
+            END;
+            CREATE TRIGGER chunks_au AFTER UPDATE ON chunks BEGIN
+              INSERT INTO chunks_fts(chunks_fts, rowid, content, path, chunk_id)
+              VALUES ('delete', old.id, old.content, old.path, old.id);
+              INSERT INTO chunks_fts(rowid, content, path, chunk_id) VALUES (new.id, new.content, new.path, new.id);
+            END;
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO chunks_fts(rowid, content, path, chunk_id)
+            SELECT id, content, path, id FROM chunks
+            """
+        )
+
+    def rebuild_fts(self) -> None:
+        with self.connect() as conn:
+            self._drop_fts(conn)
+            self._create_fts(conn)
+
     def upsert_document(
         self,
         *,
@@ -217,12 +259,26 @@ class NexusDb:
             return {r["path"] for r in rows}
 
     def replace_chunks(self, *, path: str, chunks: list[str]) -> None:
-        with self.connect() as conn:
-            conn.execute("DELETE FROM chunks WHERE path=?", (path,))
-            conn.executemany(
-                "INSERT INTO chunks(path, chunk_index, content) VALUES (?, ?, ?)",
-                [(path, i, content) for i, content in enumerate(chunks)],
-            )
+        try:
+            with self.connect() as conn:
+                conn.execute("DELETE FROM chunks WHERE path=?", (path,))
+                conn.executemany(
+                    "INSERT INTO chunks(path, chunk_index, content) VALUES (?, ?, ?)",
+                    [(path, i, content) for i, content in enumerate(chunks)],
+                )
+        except sqlite3.OperationalError as e:
+            # FTS can occasionally drift or error; rebuild once and retry.
+            if "SQL logic error" in str(e) or "fts5" in str(e).lower():
+                with self.connect() as conn:
+                    self._drop_fts(conn)
+                    conn.execute("DELETE FROM chunks WHERE path=?", (path,))
+                    conn.executemany(
+                        "INSERT INTO chunks(path, chunk_index, content) VALUES (?, ?, ?)",
+                        [(path, i, content) for i, content in enumerate(chunks)],
+                    )
+                    self._create_fts(conn)
+            else:
+                raise
 
     def search_chunks(self, query: str, limit: int = 8) -> list[sqlite3.Row]:
         # FTS5 is sensitive to punctuation; normalize to tokens.

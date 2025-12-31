@@ -10,34 +10,20 @@ from litellm import completion
 from nexus_ai.core.agent_actions import ActionError, apply_actions, parse_agent_json
 from nexus_ai.core.config import load_config, resolve_llm_settings
 from nexus_ai.core.db import NexusDb
+from nexus_ai.core.map_store import get_map_store
 from nexus_ai.core.planner import build_plan
+from nexus_ai.core.runtime import ensure_litellm_quiet
 from nexus_ai.core.workspace import Workspace
 
 
-def _looks_like_planning(query: str) -> str | None:
-    q = query.lower().strip()
-    if "today" in q:
-        return "today"
-    if "this week" in q or "week" in q:
-        return "week"
-    if "this month" in q or "month" in q:
-        return "month"
-    if "what should i do" in q:
-        return "today"
-    return None
-
-
 def run_chat(ws: Workspace, *, query: str) -> str:
-    mode = _looks_like_planning(query)
-    if mode:
-        return build_plan(ws, mode=mode).render().plain
-
     db = NexusDb(ws.paths.db_path)
     db.init_schema()
-    hits = db.search_chunks(query, limit=8)
+    map_store = get_map_store(ws)
+    hits = map_store.search(query, limit=8)
     context_lines: list[str] = []
     for h in hits:
-        context_lines.append(f"FILE: {h['path']}\n{h['content']}".strip())
+        context_lines.append(f"FILE: {h.path}\n{h.content}".strip())
     context = "\n\n---\n\n".join(context_lines).strip()
 
     # If we have no indexed context, still allow "write intent" planning.
@@ -45,6 +31,7 @@ def run_chat(ws: Workspace, *, query: str) -> str:
         context = "(No indexed context found.)"
 
     cfg = load_config(ws.paths.config_yaml)
+    ensure_litellm_quiet()
     llm_settings = resolve_llm_settings(cfg.llm)
     api_key = os.getenv(llm_settings["api_key_env"]) if llm_settings.get("api_key_env") else None
     if not api_key and not llm_settings["model"].startswith("ollama/"):
@@ -59,7 +46,18 @@ def run_chat(ws: Workspace, *, query: str) -> str:
     for p in sorted(ws.paths.knowledge_dir.iterdir()):
         if p.is_dir() and not p.name.startswith("."):
             knowledge_subdirs.append(p.name + "/")
-    candidate_files = [h["path"] for h in hits]
+    candidate_files = [h.path for h in hits]
+
+    knowledge_files: list[str] = []
+    for p in ws.paths.knowledge_dir.rglob("*.md"):
+        if ".git" in p.parts:
+            continue
+        rel = p.relative_to(ws.paths.knowledge_dir).as_posix()
+        if rel.startswith("."):
+            continue
+        knowledge_files.append(rel)
+        if len(knowledge_files) >= 200:
+            break
 
     system = """
 You are Nexus AI, a personal assistant that can read AND propose safe edits to the user's Knowledge/ markdown library.
@@ -71,6 +69,13 @@ If the user request is informational, respond:
   "mode": "answer",
   "answer": "...",
   "sources": ["relative/path.md", "..."]
+}
+
+If the user asks what to do today/this week/this month or asks for a plan, respond:
+{
+  "mode": "plan",
+  "scope": "today|week|month",
+  "note": "short rationale"
 }
 
 If the user request requires updating Knowledge/, respond:
@@ -89,6 +94,8 @@ If the user request requires updating Knowledge/, respond:
 Rules:
 - All paths must be relative to Knowledge/ and must not start with '.' or contain '..'.
 - Prefer append_task for "add a task" requests. Put tasks under a '## Tasks' section (Nexus will create if missing).
+- If a relevant file already exists, choose it from knowledge_files or candidate_files instead of creating a new one.
+- If you are unsure which file to edit, ask a clarification question (answer mode) rather than creating a new file.
 - Keep changes minimal and do not invent facts. If you need clarification, ask as an answer instead of acting.
 """
 
@@ -96,6 +103,7 @@ Rules:
         "query": query,
         "knowledge_folders": knowledge_subdirs[:40],
         "candidate_files": candidate_files[:12],
+        "knowledge_files": knowledge_files,
         "context": context,
     }
 
@@ -144,6 +152,12 @@ Rules:
 
     if payload is None:
         return raw if raw else (last_error or "Model response could not be parsed.")
+
+    if payload.get("mode") == "plan":
+        scope = payload.get("scope")
+        if scope not in {"today", "week", "month"}:
+            scope = "today"
+        return build_plan(ws, mode=scope).render().plain
 
     if payload.get("mode") == "actions":
         actions = payload.get("actions", [])

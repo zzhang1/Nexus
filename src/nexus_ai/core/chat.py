@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import os
-from pathlib import Path
-
 import json
+import os
+from dataclasses import dataclass
+from typing import Any
 
 from litellm import completion
 
@@ -16,7 +16,16 @@ from nexus_ai.core.runtime import ensure_litellm_quiet
 from nexus_ai.core.workspace import Workspace
 
 
-def run_chat(ws: Workspace, *, query: str) -> str:
+@dataclass(frozen=True)
+class ChatPrepared:
+    hits: list[Any]
+    context: str
+    llm_ready: bool
+    completion_kwargs: dict[str, Any] | None
+    messages: list[dict[str, str]] | None
+
+
+def _prepare_chat_request(ws: Workspace, *, query: str) -> ChatPrepared:
     db = NexusDb(ws.paths.db_path)
     db.init_schema()
     map_store = get_map_store(ws)
@@ -34,11 +43,14 @@ def run_chat(ws: Workspace, *, query: str) -> str:
     ensure_litellm_quiet()
     llm_settings = resolve_llm_settings(cfg.llm)
     api_key = os.getenv(llm_settings["api_key_env"]) if llm_settings.get("api_key_env") else None
-    if not api_key and not llm_settings["model"].startswith("ollama/"):
-        # Offline-ish fallback: show retrieved chunks.
-        return (
-            "LLM not configured (set OPENROUTER_API_KEY). Here are the most relevant excerpts:\n\n"
-            + context
+    llm_ready = bool(api_key) or llm_settings["model"].startswith("ollama/")
+    if not llm_ready:
+        return ChatPrepared(
+            hits=hits,
+            context=context,
+            llm_ready=False,
+            completion_kwargs=None,
+            messages=None,
         )
 
     # Provide the model a small view of the territory.
@@ -83,7 +95,7 @@ If the user request requires updating Knowledge/, respond:
   "mode": "actions",
   "note": "short explanation",
   "actions": [
-    {"type": "append_task", "path": "2_Areas/Home/Home.md", "task": "- [ ] ... due:YYYY-MM-DD p:P2", "create_if_missing": true},
+    {"type": "append_task", "path": "2_Areas/Home/Home.md", "task": "- [ ] ... due:YYYY-MM-DD p:P1", "create_if_missing": true},
     {"type": "create_file", "path": "3_Resources/...", "content": "..."},
     {"type": "replace_file", "path": "2_Areas/...", "content": "..."},
     {"type": "move_file", "from": "3_Resources/Old.md", "to": "3_Resources/New.md"},
@@ -120,12 +132,26 @@ Rules:
         completion_kwargs["api_key"] = api_key
 
     messages = list(completion_kwargs["messages"])
+    return ChatPrepared(
+        hits=hits,
+        context=context,
+        llm_ready=True,
+        completion_kwargs=completion_kwargs,
+        messages=messages,
+    )
+
+
+def _run_llm(prepared: ChatPrepared) -> tuple[dict | None, str, list[dict[str, str]], str | None]:
+    if not prepared.llm_ready or not prepared.completion_kwargs or not prepared.messages:
+        return None, "", [], "LLM not configured."
+
+    messages = list(prepared.messages)
     raw = ""
     payload: dict | None = None
     last_error: str | None = None
-    for attempt in range(3):
+    for _attempt in range(3):
         resp = completion(
-            **{k: v for k, v in completion_kwargs.items() if k != "messages"},
+            **{k: v for k, v in prepared.completion_kwargs.items() if k != "messages"},
             messages=messages,
         )
         raw = resp["choices"][0]["message"]["content"]
@@ -149,7 +175,47 @@ Rules:
                     ),
                 }
             )
+    return payload, raw, messages, last_error
 
+
+def generate_chat_payload(ws: Workspace, *, query: str) -> dict[str, Any]:
+    prepared = _prepare_chat_request(ws, query=query)
+    if not prepared.llm_ready:
+        sources = [h.path for h in prepared.hits]
+        return {
+            "mode": "answer",
+            "answer": "LLM not configured (set OPENROUTER_API_KEY). Here are the most relevant excerpts:\n\n"
+            + prepared.context,
+            "sources": sources,
+        }
+
+    payload, raw, _messages, last_error = _run_llm(prepared)
+    if payload is None:
+        answer = raw if raw else (last_error or "Model response could not be parsed.")
+        return {"mode": "answer", "answer": answer, "sources": [h.path for h in prepared.hits]}
+
+    mode = payload.get("mode")
+    if mode not in {"answer", "plan", "actions"}:
+        return {
+            "mode": "answer",
+            "answer": str(payload.get("answer", raw)),
+            "sources": [h.path for h in prepared.hits],
+        }
+
+    if mode == "answer" and not isinstance(payload.get("sources"), list):
+        payload["sources"] = [h.path for h in prepared.hits]
+    return payload
+
+
+def run_chat(ws: Workspace, *, query: str) -> str:
+    prepared = _prepare_chat_request(ws, query=query)
+    if not prepared.llm_ready:
+        return (
+            "LLM not configured (set OPENROUTER_API_KEY). Here are the most relevant excerpts:\n\n"
+            + prepared.context
+        )
+
+    payload, raw, messages, last_error = _run_llm(prepared)
     if payload is None:
         return raw if raw else (last_error or "Model response could not be parsed.")
 
@@ -166,6 +232,8 @@ Rules:
         try:
             result = apply_actions(ws, actions, require_approval=True)
         except Exception as e:
+            if not prepared.completion_kwargs:
+                return f"Failed to apply actions: {e}"
             # Give the model one chance to correct invalid actions.
             messages.append({"role": "assistant", "content": raw})
             messages.append(
@@ -183,7 +251,7 @@ Rules:
             )
             try:
                 resp2 = completion(
-                    **{k: v for k, v in completion_kwargs.items() if k != "messages"},
+                    **{k: v for k, v in prepared.completion_kwargs.items() if k != "messages"},
                     messages=messages,
                 )
                 raw2 = resp2["choices"][0]["message"]["content"]

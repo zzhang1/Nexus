@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Workspace{% endblock %}
+
+{% block content %}
+<div class="grid-two">
+  <div class="card">
+    <div class="card-header">
+      <h2>Workspace Settings</h2>
+      <span class="tag">Local only</span>
+    </div>
+    {% if error %}
+    <div class="flash error">{{ error }}</div>
+    {% endif %}
+    <form method="post" class="stack">
+      <div class="field">
+        <label>Workspace root</label>
+        <input type="text" name="root" value="{{ root_text }}" placeholder="/path/to/MyNexusKnowledgeBase" />
+      </div>
+      <label class="checkbox">
+        <input type="checkbox" name="auto" {% if auto_discover %}checked{% endif %} />
+        Auto-discover from the current directory
+      </label>
+      <button class="btn primary" type="submit" name="action" value="save">Save Settings</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>Workspace Status</h2>
+      <span class="tag">{{ 'Ready' if workspace_ready else 'Not initialized' }}</span>
+    </div>
+    {% if workspace and workspace_ready %}
+      <div class="muted">Workspace root</div>
+      <div class="value-block">{{ workspace.root }}</div>
+      <div class="muted">Knowledge folder</div>
+      <div class="value-block">{{ workspace.paths.knowledge_dir }}</div>
+    {% elif workspace %}
+      <p>This folder exists, but Nexus hasn’t been initialized yet.</p>
+      <form method="post">
+        <button class="btn primary" type="submit" name="action" value="init">Initialize Workspace</button>
+      </form>
+    {% else %}
+      <p>Choose a workspace root and save settings to continue.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

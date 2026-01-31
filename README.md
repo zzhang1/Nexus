@@ -154,6 +154,14 @@ nexus month
 
 This intent model is used both for interactive chat and CLI commands that proxy to chat (e.g., `nexus chat "What should I do today?"` produces a **Plan**).
 
+### Web UI (Local)
+For a lightweight, local web UI that mirrors the CLI workflows:
+```bash
+pip install .[ui]
+nexus ui
+```
+The UI uses the same workspace and safety model (review diffs before applying changes).
+
 ### 4. Track Tasks in Notes
 Add tasks anywhere in `Knowledge/` using Markdown checkboxes with optional inline metadata:
 ```md
@@ -202,6 +210,11 @@ nexus tasks
 nexus chat "What should I do today?"
 nexus tidy --focus home
 nexus tidy --stale-days 90
+```
+
+**Web UI**
+```bash
+nexus ui
 ```
 
 **Calendar**

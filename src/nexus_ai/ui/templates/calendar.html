@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Calendar{% endblock %}
+
+{% block actions %}
+<form method="post">
+  <input type="hidden" name="action" value="sync" />
+  <button class="btn primary" type="submit">Sync Calendars</button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="grid-two">
+  <div class="card">
+    <div class="card-header">
+      <h2>ICS Sources</h2>
+      <span class="tag">Configured</span>
+    </div>
+    {% if ics_paths %}
+    <ul class="file-list">
+      {% for path in ics_paths %}
+      <li>{{ path }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="muted">No ICS paths configured.</div>
+    {% endif %}
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <h2>Upcoming Deadlines</h2>
+      <span class="tag">Next 14 days</span>
+    </div>
+    {% if deadlines %}
+    <ul class="file-list">
+      {% for item in deadlines %}
+      <li>
+        <strong>{{ item.title }}</strong>
+        <div class="muted">Due: {{ item.due }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="muted">No upcoming deadlines.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2>Upcoming Events</h2>
+    <span class="tag">Next 14 days</span>
+  </div>
+  {% if events %}
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>All-day</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in events %}
+        <tr>
+          <td>{{ event.title }}</td>
+          <td>{{ event.start }}</td>
+          <td>{{ event.end or '-' }}</td>
+          <td>{{ event.all_day }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="muted">No upcoming events.</div>
+  {% endif %}
+</div>
+{% endblock %}

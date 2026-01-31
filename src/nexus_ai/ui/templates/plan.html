@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Plan{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h2>{{ plan.title }}</h2>
+    <div class="segmented">
+      <a class="segment{% if scope == 'today' %} active{% endif %}" href="{{ url_for('plan', scope='today') }}">Today</a>
+      <a class="segment{% if scope == 'week' %} active{% endif %}" href="{{ url_for('plan', scope='week') }}">Week</a>
+      <a class="segment{% if scope == 'month' %} active{% endif %}" href="{{ url_for('plan', scope='month') }}">Month</a>
+    </div>
+  </div>
+  <ul class="plan-list">
+    {% for line in plan.lines %}
+    <li>{{ line }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

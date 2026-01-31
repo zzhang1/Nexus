@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Tasks{% endblock %}
+
+{% block actions %}
+<form method="get">
+  <label class="checkbox">
+    <input type="checkbox" name="include" value="1" {% if include_completed %}checked{% endif %} onchange="this.form.submit()" />
+    Show completed
+  </label>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h2>Task List</h2>
+    <span class="tag">{{ rows|length }} items</span>
+  </div>
+  {% if rows %}
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Priority</th>
+          <th>Title</th>
+          <th>Due</th>
+          <th>Source</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.priority or '-' }}</td>
+          <td>{{ row.title }}</td>
+          <td>{{ row.due_date.isoformat() if row.due_date else '-' }}</td>
+          <td class="muted">{{ row.source_path }}#{{ row.source_anchor }}</td>
+          <td>{{ row.status }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="muted">No tasks found.</div>
+  {% endif %}
+</div>
+{% endblock %}

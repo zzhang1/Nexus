@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Overview{% endblock %}
+
+{% block actions %}
+<div class="action-row">
+  <form method="post">
+    <input type="hidden" name="action" value="sync" />
+    <button class="btn ghost" type="submit">Sync Knowledge</button>
+  </form>
+  <form method="post">
+    <input type="hidden" name="action" value="ingest" />
+    <button class="btn ghost" type="submit">Ingest Inbox</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="hero">
+  <div>
+    <div class="hero-eyebrow">Welcome back</div>
+    <h1>Nexus Workspace</h1>
+    <p>
+      Your Knowledge folder is the source of truth. The map, plans, and insights are rebuilt whenever you want.
+    </p>
+  </div>
+  <div class="hero-panel">
+    <div class="hero-label">Today</div>
+    <div class="hero-date">{{ today_label }}</div>
+    <a class="btn primary" href="{{ url_for('plan', scope='today') }}">Plan My Day</a>
+  </div>
+</div>
+
+{% if workspace and not workspace_ready %}
+<div class="card callout">
+  <div>
+    <h2>Initialize your workspace</h2>
+    <p>Set up the local folder structure and seed configuration files.</p>
+  </div>
+  <form method="post">
+    <input type="hidden" name="action" value="init" />
+    <button class="btn primary" type="submit">Initialize</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">Documents</div>
+    <div class="stat-value">{{ counts.documents }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Open Tasks</div>
+    <div class="stat-value">{{ counts.tasks }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Events</div>
+    <div class="stat-value">{{ counts.events }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Deadlines</div>
+    <div class="stat-value">{{ counts.deadlines }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Outbox</div>
+    <div class="stat-value">{{ counts.outbox }}</div>
+  </div>
+</div>
+
+<div class="grid-two">
+  <div class="card">
+    <h3>Map Health</h3>
+    <div class="key-value">
+      <span>New since sync</span>
+      <strong>{{ map_status.new }}</strong>
+    </div>
+    <div class="key-value">
+      <span>Changed since sync</span>
+      <strong>{{ map_status.stale }}</strong>
+    </div>
+    <div class="key-value">
+      <span>Deleted since sync</span>
+      <strong>{{ map_status.deleted }}</strong>
+    </div>
+    <div class="muted">Last indexed: {{ last_indexed }}</div>
+  </div>
+  <div class="card">
+    <h3>Quick Launch</h3>
+    <div class="quick-links">
+      <a class="quick-link" href="{{ url_for('chat') }}">Ask a question</a>
+      <a class="quick-link" href="{{ url_for('knowledge') }}">Browse knowledge</a>
+      <a class="quick-link" href="{{ url_for('tasks') }}">Review tasks</a>
+      <a class="quick-link" href="{{ url_for('calendar') }}">Upcoming schedule</a>
+    </div>
+    <div class="muted">Local-first. No cloud required.</div>
+  </div>
+</div>
+{% endblock %}

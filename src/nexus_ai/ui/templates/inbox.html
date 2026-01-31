@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Inbox{% endblock %}
+
+{% block actions %}
+<form method="post">
+  <input type="hidden" name="action" value="ingest" />
+  <button class="btn primary" type="submit">Run Ingest</button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h2>0_Inbox</h2>
+    <span class="tag">{{ inbox_files|length }} files shown</span>
+  </div>
+  {% if inbox_files %}
+  <ul class="file-list">
+    {% for f in inbox_files %}
+    <li>{{ f }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="muted">Inbox is empty.</div>
+  {% endif %}
+</div>
+{% endblock %}

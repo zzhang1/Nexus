@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nexus UI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}" />
+  </head>
+  <body>
+    <div class="app" id="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="brand">
+          <div class="brand-mark">
+            <span class="brand-icon">🧭</span>
+            <div>
+              <div class="brand-title">Nexus</div>
+              <div class="brand-subtitle">Local-first assistant</div>
+            </div>
+          </div>
+          <button class="icon-btn sidebar-toggle" data-action="toggle-sidebar" title="Toggle menu">☰</button>
+        </div>
+        <div class="workspace-chip">
+          <div class="label">Workspace</div>
+          <div class="value">{{ workspace_root or "Auto-discover" }}</div>
+          {% if workspace_ready %}
+          <div class="tag success">Ready</div>
+          {% else %}
+          <div class="tag warn">Not initialized</div>
+          {% endif %}
+        </div>
+        <nav class="nav">
+          {% for item in nav_items %}
+          {% set active = (request.endpoint == item.endpoint) %}
+          <a href="{{ url_for(item.endpoint) }}" class="nav-link{% if active %} active{% endif %}">
+            <span class="nav-icon">{{ item.icon }}</span>
+            <span class="nav-label">{{ item.label }}</span>
+          </a>
+          {% endfor %}
+        </nav>
+        <div class="sidebar-footer">
+          <div class="muted">Territory = Knowledge · Map = Index</div>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <div class="title">{% block title %}{% endblock %}</div>
+          <div class="actions">{% block actions %}{% endblock %}</div>
+        </header>
+        <section class="content">
+          {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+          <div class="flash-stack">
+            {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% endwith %}
+          {% block content %}{% endblock %}
+        </section>
+      </main>
+    </div>
+    <div class="sidebar-overlay" data-action="toggle-sidebar"></div>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

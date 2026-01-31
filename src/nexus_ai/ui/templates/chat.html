@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Chat{% endblock %}
+
+{% block content %}
+<div class="card hero-card">
+  <div>
+    <h2>Ask Nexus</h2>
+    <p>Questions about your knowledge base, plans for today, or actions to update notes.</p>
+  </div>
+  <form class="stack" method="post">
+    <input type="hidden" name="action" value="ask" />
+    <textarea name="query" placeholder="What should I focus on today?" rows="4">{{ query }}</textarea>
+    <button class="btn primary" type="submit">Ask Nexus</button>
+  </form>
+</div>
+
+{% if error %}
+  <div class="flash error">{{ error }}</div>
+{% endif %}
+
+{% if payload %}
+  {% if payload.mode == 'plan' and plan_obj %}
+    <div class="card">
+      <div class="card-header">
+        <h3>{{ plan_obj.title }}</h3>
+        <span class="tag">{{ payload.scope or "today" }}</span>
+      </div>
+      <ul class="plan-list">
+        {% for line in plan_obj.lines %}
+        <li>{{ line }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% elif payload.mode == 'actions' %}
+    <div class="card">
+      <div class="card-header">
+        <h3>Proposed Changes</h3>
+        <span class="tag">Review required</span>
+      </div>
+      {% if note %}<div class="muted">{{ note }}</div>{% endif %}
+      {% if proposed %}
+        {% for change in proposed %}
+          {% if change.diff %}
+          <pre class="code-block">{{ change.diff }}</pre>
+          {% endif %}
+        {% endfor %}
+      {% else %}
+        <div class="muted">No changes needed.</div>
+      {% endif %}
+      {% if has_diffs %}
+      <form method="post" class="stack">
+        <input type="hidden" name="action" value="apply" />
+        <input type="hidden" name="actions_json" value='{{ payload.actions | tojson }}' />
+        <label class="checkbox">
+          <input type="checkbox" name="approved" />
+          I reviewed the diffs and approve these changes.
+        </label>
+        <button class="btn primary" type="submit">Apply Changes</button>
+      </form>
+      {% endif %}
+    </div>
+  {% else %}
+    <div class="card">
+      <div class="card-header">
+        <h3>Answer</h3>
+        <span class="tag">Knowledge-grounded</span>
+      </div>
+      <div class="answer-text">{{ payload.answer }}</div>
+      {% if payload.sources %}
+      <div class="divider"></div>
+      <div class="muted">Sources</div>
+      <ul>
+        {% for src in payload.sources %}
+        <li>{{ src }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

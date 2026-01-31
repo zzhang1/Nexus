@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Knowledge{% endblock %}
+
+{% block actions %}
+<form method="post">
+  <input type="hidden" name="action" value="sync" />
+  <button class="btn ghost" type="submit">Sync Index</button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="subtle-banner">
+  <div>
+    <h2>Browse the territory, query the map</h2>
+    <p>Notes are canonical; the index is derived and rebuilt anytime.</p>
+  </div>
+  <div class="banner-stats">
+    <div>
+      <div class="muted">New</div>
+      <strong>{{ map_status.new }}</strong>
+    </div>
+    <div>
+      <div class="muted">Changed</div>
+      <strong>{{ map_status.stale }}</strong>
+    </div>
+    <div>
+      <div class="muted">Deleted</div>
+      <strong>{{ map_status.deleted }}</strong>
+    </div>
+    <div>
+      <div class="muted">Last indexed</div>
+      <strong>{{ last_indexed }}</strong>
+    </div>
+  </div>
+</div>
+
+<div class="grid-two">
+  <div class="card">
+    <div class="card-header">
+      <h3>Territory</h3>
+      <span class="tag">Notes</span>
+    </div>
+    <form class="stack" method="get">
+      <div class="field">
+        <label>View</label>
+        <select name="view" data-auto-submit>
+          <option value="all" {% if view == 'all' %}selected{% endif %}>All files</option>
+          <option value="recent" {% if view == 'recent' %}selected{% endif %}>Recent</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Folder</label>
+        <select name="dir" data-auto-submit>
+          {% for d in dirs %}
+          <option value="{{ d }}" {% if d == rel_dir %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>Filter files</label>
+        <input type="text" name="filter" value="{{ filter_text }}" placeholder="Search filenames" />
+      </div>
+      <div class="field">
+        <label>File</label>
+        <select name="file" size="8">
+          {% if files %}
+          {% for f in files %}
+          <option value="{{ f }}" {% if f == selected_file %}selected{% endif %}>{{ f }}</option>
+          {% endfor %}
+          {% else %}
+          <option value="">No files found</option>
+          {% endif %}
+        </select>
+      </div>
+      <div class="action-row">
+        <button class="btn primary" type="submit">Open</button>
+        <a class="btn ghost" href="{{ url_for('knowledge') }}">Reset</a>
+      </div>
+    </form>
+
+    {% if file_context %}
+    <div class="divider"></div>
+    <div class="file-preview">
+      <div class="file-title">{{ file_context.rel_path }}</div>
+      <div class="pill-row">
+        {% for tag in file_context.tags %}
+        <span class="pill">{{ tag }}</span>
+        {% endfor %}
+      </div>
+      <div class="accordion">
+        <details>
+          <summary>Front matter</summary>
+          <pre class="code-block">{{ file_context.front_matter | tojson(indent=2) }}</pre>
+        </details>
+        <details>
+          <summary>Tasks in file ({{ file_context.tasks | length }})</summary>
+          {% if file_context.tasks %}
+          <ul>
+            {% for t in file_context.tasks %}
+            <li>{{ t.title }} · {{ t.due_date or '-' }} · {{ t.priority or '-' }}</li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <div class="muted">No tasks found.</div>
+          {% endif %}
+        </details>
+        <details>
+          <summary>Related notes</summary>
+          {% if file_context.related %}
+          <ul>
+            {% for rel in file_context.related %}
+            <li>{{ rel }}</li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <div class="muted">No related notes found.</div>
+          {% endif %}
+        </details>
+      </div>
+      <div class="markdown-preview">
+        <pre>{{ file_context.preview }}</pre>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3>Map Search</h3>
+      <span class="tag">Index</span>
+    </div>
+    <form class="stack" method="get">
+      <input type="hidden" name="view" value="{{ view }}" />
+      <input type="hidden" name="dir" value="{{ rel_dir }}" />
+      <input type="hidden" name="filter" value="{{ filter_text }}" />
+      <input type="hidden" name="file" value="{{ selected_file }}" />
+      <div class="field">
+        <label>Search the map</label>
+        <input type="text" name="q" value="{{ query }}" placeholder="Ask the index" />
+      </div>
+      <div class="field">
+        <label>Results</label>
+        <select name="limit">
+          {% for size in [5, 8, 12, 16, 20] %}
+          <option value="{{ size }}" {% if size == limit %}selected{% endif %}>{{ size }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn primary" type="submit">Search</button>
+    </form>
+
+    {% if query %}
+      {% if hits %}
+      <div class="results">
+        {% for hit in hits %}
+        <div class="result-card">
+          <div class="result-title">{{ hit.path }}</div>
+          {% if hit.score is not none %}
+          <div class="muted">Score: {{ "%.4f"|format(hit.score) }}</div>
+          {% endif %}
+          <div class="result-body">{{ hit.content }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="muted">No map hits yet. Try syncing or adjusting the query.</div>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

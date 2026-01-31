@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Outbox{% endblock %}
+
+{% block content %}
+<div class="grid-two">
+  <div class="card">
+    <div class="card-header">
+      <h2>Outbox Items</h2>
+      <span class="tag">{{ items|length }} items</span>
+    </div>
+    {% if items %}
+    <form method="get" class="stack">
+      <div class="field">
+        <label>Select item</label>
+        <select name="item" size="10">
+          {% for item in items %}
+          <option value="{{ item.rel_path }}" {% if item.rel_path == selected %}selected{% endif %}>
+            {{ item.rel_path }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn ghost" type="submit">Open</button>
+    </form>
+    {% else %}
+    <div class="muted">Outbox is empty.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>Preview</h2>
+      {% if status %}<span class="tag">{{ status }}</span>{% endif %}
+    </div>
+    {% if selected %}
+    <pre class="code-block">{{ preview }}</pre>
+    <form method="post" class="action-row">
+      <input type="hidden" name="rel_path" value="{{ selected }}" />
+      <button class="btn primary" type="submit" name="action" value="approve">Approve</button>
+      <button class="btn ghost" type="submit" name="action" value="delete">Delete</button>
+    </form>
+    {% else %}
+    <div class="muted">Select an item to preview.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

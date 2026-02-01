@@ -166,6 +166,36 @@ All chat interactions resolve to one of three explicit intents, which drives beh
 
 This intent model allows both free-form chat and CLI commands (`nexus chat ...`) to be deterministic and safe.
 
+### Action Schema (JSON)
+When the intent is **Actions**, the model must return JSON that specifies edits under `Knowledge/`:
+```json
+{
+  "mode": "actions",
+  "note": "short explanation",
+  "actions": [
+    {"type": "append_task", "path": "2_Areas/Home/Home.md", "task": "- [ ] ... due:YYYY-MM-DD p:P1", "create_if_missing": true},
+    {"type": "create_file", "path": "3_Resources/...", "content": "..."},
+    {"type": "replace_file", "path": "2_Areas/...", "content": "..."},
+    {"type": "edit_block", "path": "2_Areas/...", "old": "exact block", "new": "replacement block"},
+    {"type": "move_file", "from": "3_Resources/Old.md", "to": "3_Resources/New.md"},
+    {"type": "delete_file", "path": "4_Archive/Old.md"}
+  ]
+}
+```
+
+**Safety & behavior:**
+* Paths must be relative to `Knowledge/` and must not start with `.` or contain `..`.
+* `edit_block` replaces the first exact match of `old` in the file.
+* All actions are previewed as diffs and require approval before being applied.
+
+### Read-Only Tool Actions (JSON)
+Before proposing edits, the model may request read-only tools. These do not modify files.
+```json
+{"type": "search", "query": "keyword", "limit": 8}
+{"type": "find_files", "query": "keyword", "limit": 20}
+{"type": "read_file", "path": "2_Areas/Home/Home.md", "max_chars": 4000}
+```
+
 ## 2. Tech Stack
 
 *   **Language:** Python 3.10+

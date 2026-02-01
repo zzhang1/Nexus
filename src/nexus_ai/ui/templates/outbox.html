@@ -34,7 +34,11 @@
       {% if status %}<span class="tag">{{ status }}</span>{% endif %}
     </div>
     {% if selected %}
+    {% if rendered_html %}
+    <div class="markdown-body">{{ rendered_html | safe }}</div>
+    {% else %}
     <pre class="code-block">{{ preview }}</pre>
+    {% endif %}
     <form method="post" class="action-row">
       <input type="hidden" name="rel_path" value="{{ selected }}" />
       <button class="btn primary" type="submit" name="action" value="approve">Approve</button>

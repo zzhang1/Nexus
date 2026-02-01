@@ -21,7 +21,7 @@
     <div class="hero-eyebrow">Welcome back</div>
     <h1>Nexus Workspace</h1>
     <p>
-      Your Knowledge folder is the source of truth. The map, plans, and insights are rebuilt whenever you want.
+      Your notes live here. Plans and insights update whenever you refresh.
     </p>
   </div>
   <div class="hero-panel">
@@ -69,20 +69,20 @@
 
 <div class="grid-two">
   <div class="card">
-    <h3>Map Health</h3>
+    <h3>Search Status</h3>
     <div class="key-value">
-      <span>New since sync</span>
+      <span>New since refresh</span>
       <strong>{{ map_status.new }}</strong>
     </div>
     <div class="key-value">
-      <span>Changed since sync</span>
+      <span>Updated since refresh</span>
       <strong>{{ map_status.stale }}</strong>
     </div>
     <div class="key-value">
-      <span>Deleted since sync</span>
+      <span>Removed since refresh</span>
       <strong>{{ map_status.deleted }}</strong>
     </div>
-    <div class="muted">Last indexed: {{ last_indexed }}</div>
+    <div class="muted">Last refreshed: {{ last_indexed }}</div>
   </div>
   <div class="card">
     <h3>Quick Launch</h3>

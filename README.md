@@ -154,6 +154,29 @@ nexus month
 
 This intent model is used both for interactive chat and CLI commands that proxy to chat (e.g., `nexus chat "What should I do today?"` produces a **Plan**).
 
+**Action JSON (formal):** chat actions use structured JSON. Nexus validates paths, previews diffs, and requires approval.
+```json
+{
+  "mode": "actions",
+  "note": "short explanation",
+  "actions": [
+    {"type": "append_task", "path": "2_Areas/Home/Home.md", "task": "- [ ] ... due:YYYY-MM-DD p:P1", "create_if_missing": true},
+    {"type": "create_file", "path": "3_Resources/...", "content": "..."},
+    {"type": "replace_file", "path": "2_Areas/...", "content": "..."},
+    {"type": "edit_block", "path": "2_Areas/...", "old": "exact block", "new": "replacement block"},
+    {"type": "move_file", "from": "3_Resources/Old.md", "to": "3_Resources/New.md"},
+    {"type": "delete_file", "path": "4_Archive/Old.md"}
+  ]
+}
+```
+
+**Read-only tool actions (JSON):** the model can fetch context before editing, then return final actions.
+```json
+{"type": "search", "query": "keyword", "limit": 8}
+{"type": "find_files", "query": "keyword", "limit": 20}
+{"type": "read_file", "path": "2_Areas/Home/Home.md", "max_chars": 4000}
+```
+
 ### Web UI (Local)
 For a lightweight, local web UI that mirrors the CLI workflows:
 ```bash

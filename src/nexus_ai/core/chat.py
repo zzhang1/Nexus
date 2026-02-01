@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from datetime import date, datetime
 from typing import Any
 
 from litellm import completion
@@ -10,6 +11,7 @@ from litellm import completion
 from nexus_ai.core.agent_actions import ActionError, apply_actions, parse_agent_json
 from nexus_ai.core.config import load_config, resolve_llm_settings
 from nexus_ai.core.db import NexusDb
+from nexus_ai.core.knowledge_access import KnowledgeAccess
 from nexus_ai.core.map_store import get_map_store
 from nexus_ai.core.planner import build_plan
 from nexus_ai.core.runtime import ensure_litellm_quiet
@@ -23,6 +25,15 @@ class ChatPrepared:
     llm_ready: bool
     completion_kwargs: dict[str, Any] | None
     messages: list[dict[str, str]] | None
+
+
+TOOL_ACTIONS = {"search", "read_file", "find_files"}
+
+
+def _json_fallback(obj: Any) -> str:
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    return str(obj)
 
 
 def _prepare_chat_request(ws: Workspace, *, query: str) -> ChatPrepared:
@@ -98,15 +109,23 @@ If the user request requires updating Knowledge/, respond:
     {"type": "append_task", "path": "2_Areas/Home/Home.md", "task": "- [ ] ... due:YYYY-MM-DD p:P1", "create_if_missing": true},
     {"type": "create_file", "path": "3_Resources/...", "content": "..."},
     {"type": "replace_file", "path": "2_Areas/...", "content": "..."},
+    {"type": "edit_block", "path": "2_Areas/...", "old": "exact block", "new": "replacement block"},
     {"type": "move_file", "from": "3_Resources/Old.md", "to": "3_Resources/New.md"},
     {"type": "delete_file", "path": "4_Archive/Old.md"}
   ]
 }
 
+To fetch information before editing, use tool actions (return ONLY tool actions in that step):
+{"type": "search", "query": "...", "limit": 8}
+{"type": "find_files", "query": "keyword", "limit": 20}
+{"type": "read_file", "path": "2_Areas/Home/Home.md", "max_chars": 4000}
+
 Rules:
 - All paths must be relative to Knowledge/ and must not start with '.' or contain '..'.
 - Prefer append_task for "add a task" requests. Put tasks under a '## Tasks' section (Nexus will create if missing).
 - If a relevant file already exists, choose it from knowledge_files or candidate_files instead of creating a new one.
+- If you need to edit a specific section, first read the file, then use edit_block with the exact text to replace.
+- If you need to discover files or context, return only tool actions first. After tool results, return final actions (no tool actions) or a plan/answer.
 - If you are unsure which file to edit, ask a clarification question (answer mode) rather than creating a new file.
 - Keep changes minimal and do not invent facts. If you need clarification, ask as an answer instead of acting.
 """
@@ -141,18 +160,17 @@ Rules:
     )
 
 
-def _run_llm(prepared: ChatPrepared) -> tuple[dict | None, str, list[dict[str, str]], str | None]:
-    if not prepared.llm_ready or not prepared.completion_kwargs or not prepared.messages:
-        return None, "", [], "LLM not configured."
-
-    messages = list(prepared.messages)
+def _run_llm_with_messages(
+    completion_kwargs: dict[str, Any], messages: list[dict[str, str]]
+) -> tuple[dict | None, str, list[dict[str, str]], str | None]:
     raw = ""
     payload: dict | None = None
     last_error: str | None = None
+    working_messages = list(messages)
     for _attempt in range(3):
         resp = completion(
-            **{k: v for k, v in prepared.completion_kwargs.items() if k != "messages"},
-            messages=messages,
+            **{k: v for k, v in completion_kwargs.items() if k != "messages"},
+            messages=working_messages,
         )
         raw = resp["choices"][0]["message"]["content"]
         try:
@@ -161,8 +179,8 @@ def _run_llm(prepared: ChatPrepared) -> tuple[dict | None, str, list[dict[str, s
         except ActionError as e:
             last_error = str(e)
             # Ask the model to try again with strict JSON only.
-            messages.append({"role": "assistant", "content": raw})
-            messages.append(
+            working_messages.append({"role": "assistant", "content": raw})
+            working_messages.append(
                 {
                     "role": "user",
                     "content": json.dumps(
@@ -175,7 +193,117 @@ def _run_llm(prepared: ChatPrepared) -> tuple[dict | None, str, list[dict[str, s
                     ),
                 }
             )
-    return payload, raw, messages, last_error
+    return payload, raw, working_messages, last_error
+
+
+def _run_llm(prepared: ChatPrepared) -> tuple[dict | None, str, list[dict[str, str]], str | None]:
+    if not prepared.llm_ready or not prepared.completion_kwargs or not prepared.messages:
+        return None, "", [], "LLM not configured."
+
+    return _run_llm_with_messages(prepared.completion_kwargs, list(prepared.messages))
+
+
+def _execute_tool_actions(ws: Workspace, actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    access = KnowledgeAccess(ws)
+    results: list[dict[str, Any]] = []
+    for action in actions:
+        t = str(action.get("type", "")).strip()
+        if t == "search":
+            query = str(action.get("query", "")).strip()
+            limit = int(action.get("limit", 8) or 8)
+            try:
+                hits = access.search(query, limit=limit)
+                results.append(
+                    {
+                        "type": "search",
+                        "query": query,
+                        "results": [
+                            {"path": h.path, "snippet": h.snippet, "score": h.score} for h in hits
+                        ],
+                    }
+                )
+            except Exception as exc:
+                results.append({"type": "search", "query": query, "error": str(exc)})
+        elif t == "find_files":
+            query = str(action.get("query", "")).strip()
+            limit = int(action.get("limit", 25) or 25)
+            try:
+                matches = access.find_files(query, limit=limit)
+                results.append({"type": "find_files", "query": query, "results": matches})
+            except Exception as exc:
+                results.append({"type": "find_files", "query": query, "error": str(exc)})
+        elif t == "read_file":
+            path = str(action.get("path", "")).strip()
+            max_chars = int(action.get("max_chars", 8000) or 8000)
+            try:
+                read = access.read_file(path, max_chars=max_chars)
+                results.append(
+                    {
+                        "type": "read_file",
+                        "path": read.path,
+                        "front_matter": read.front_matter,
+                        "content": read.content,
+                        "truncated": read.truncated,
+                    }
+                )
+            except Exception as exc:
+                results.append({"type": "read_file", "path": path, "error": str(exc)})
+    return results
+
+
+def _resolve_payload_with_tools(
+    ws: Workspace, prepared: ChatPrepared, *, max_steps: int = 10
+) -> tuple[dict | None, str, list[dict[str, str]], str | None]:
+    if not prepared.llm_ready or not prepared.completion_kwargs or not prepared.messages:
+        return None, "", [], "LLM not configured."
+
+    messages = list(prepared.messages)
+    raw = ""
+    last_error: str | None = None
+    for _step in range(max_steps):
+        payload, raw, messages, last_error = _run_llm_with_messages(
+            prepared.completion_kwargs, messages
+        )
+        if payload is None:
+            return None, raw, messages, last_error
+        mode = payload.get("mode")
+        tool_actions: list[dict[str, Any]] = []
+
+        if isinstance(payload, dict) and str(payload.get("type", "")).strip() in TOOL_ACTIONS:
+            tool_actions = [payload]
+        elif isinstance(payload, dict) and isinstance(payload.get("actions"), list):
+            actions = payload.get("actions", [])
+            tool_actions = [
+                a for a in actions if str(a.get("type", "")).strip() in TOOL_ACTIONS
+            ]
+            if mode != "actions" and not tool_actions:
+                return payload, raw, messages, None
+        elif mode != "actions":
+            return payload, raw, messages, None
+
+        if mode == "actions" and not tool_actions:
+            return payload, raw, messages, None
+
+        if not tool_actions:
+            return payload, raw, messages, None
+
+        tool_results = _execute_tool_actions(ws, tool_actions)
+        messages.append({"role": "assistant", "content": raw})
+        messages.append(
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "tool_results": tool_results,
+                        "instruction": "Use these tool results. Reply with ONLY a single JSON object. Do not include tool actions unless you still need more data.",
+                    },
+                    ensure_ascii=False,
+                    default=_json_fallback,
+                ),
+            }
+        )
+
+    return None, raw, messages, last_error or "Tool resolution exceeded."
 
 
 def generate_chat_payload(ws: Workspace, *, query: str) -> dict[str, Any]:
@@ -189,7 +317,7 @@ def generate_chat_payload(ws: Workspace, *, query: str) -> dict[str, Any]:
             "sources": sources,
         }
 
-    payload, raw, _messages, last_error = _run_llm(prepared)
+    payload, raw, _messages, last_error = _resolve_payload_with_tools(ws, prepared)
     if payload is None:
         answer = raw if raw else (last_error or "Model response could not be parsed.")
         return {"mode": "answer", "answer": answer, "sources": [h.path for h in prepared.hits]}
@@ -204,6 +332,10 @@ def generate_chat_payload(ws: Workspace, *, query: str) -> dict[str, Any]:
 
     if mode == "answer" and not isinstance(payload.get("sources"), list):
         payload["sources"] = [h.path for h in prepared.hits]
+    if mode == "actions":
+        actions = payload.get("actions", [])
+        if isinstance(actions, list):
+            payload["actions"] = [a for a in actions if str(a.get("type", "")).strip() not in TOOL_ACTIONS]
     return payload
 
 
@@ -215,7 +347,7 @@ def run_chat(ws: Workspace, *, query: str) -> str:
             + prepared.context
         )
 
-    payload, raw, messages, last_error = _run_llm(prepared)
+    payload, raw, messages, last_error = _resolve_payload_with_tools(ws, prepared)
     if payload is None:
         return raw if raw else (last_error or "Model response could not be parsed.")
 
@@ -229,6 +361,7 @@ def run_chat(ws: Workspace, *, query: str) -> str:
         actions = payload.get("actions", [])
         if not isinstance(actions, list):
             return "Model proposed invalid actions."
+        actions = [a for a in actions if str(a.get("type", "")).strip() not in TOOL_ACTIONS]
         try:
             result = apply_actions(ws, actions, require_approval=True)
         except Exception as e:

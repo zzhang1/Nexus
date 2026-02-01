@@ -244,6 +244,42 @@ textarea{resize:vertical; min-height:120px;}
   border:1px solid var(--border);
 }
 
+.markdown-body{
+  font-family: 'Newsreader', serif;
+  line-height:1.7;
+  color: var(--ink);
+}
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3{
+  margin-top:1.2rem;
+}
+.markdown-body a{color: var(--accent-strong);}
+.markdown-body ul,
+.markdown-body ol{padding-left:1.4rem;}
+.markdown-body blockquote{
+  margin:1rem 0;
+  padding:0.6rem 1rem;
+  background: var(--panel-2);
+  border-left:3px solid var(--accent);
+}
+.markdown-body pre{
+  background: var(--panel-2);
+  color: var(--ink);
+  border:1px solid var(--border);
+  padding:12px;
+  border-radius:12px;
+  overflow:auto;
+  font-family:'Space Mono', monospace;
+  font-size:0.85rem;
+}
+.markdown-body code{
+  font-family:'Space Mono', monospace;
+  background: rgba(47,125,102,0.12);
+  padding:2px 6px;
+  border-radius:6px;
+}
+
 .results{display:grid; gap:12px; margin-top:12px;}
 .result-card{padding:12px; border-radius:12px; border:1px solid var(--border); background: var(--panel-2);}
 .result-title{font-weight:600; margin-bottom:6px;}

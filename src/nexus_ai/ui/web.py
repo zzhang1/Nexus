@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
+try:
+    import markdown as md
+except ModuleNotFoundError:  # pragma: no cover - optional UI dependency
+    md = None
 
 from nexus_ai.core.agent_actions import ActionError, apply_actions, propose_actions
 from nexus_ai.core.calendar_sync import sync_calendars
@@ -187,6 +191,12 @@ def _related_docs_by_tags(ws: Workspace, rel_path: str, tags: list[str]) -> list
         if any(t in row_tags for t in tags):
             results.append(path)
     return results[:20]
+
+
+def _render_markdown(text: str) -> str | None:
+    if not md:
+        return None
+    return md.markdown(text, extensions=["fenced_code", "tables"])
 
 
 def _safe_rel_path(rel: str) -> str | None:
@@ -389,7 +399,11 @@ def create_app() -> Flask:
                         knowledge_root=ws.paths.knowledge_dir,
                     )
                     related = _related_docs_by_tags(ws, safe_rel, tags)
-                    preview = text if len(text) <= 8000 else text[:8000] + "\n\n... (truncated)"
+                    body = doc.body
+                    if len(body) > 8000:
+                        body = body[:8000] + "\n\n... (truncated)"
+                    preview = body
+                    rendered_html = _render_markdown(body)
                     file_context = {
                         "rel_path": safe_rel,
                         "front_matter": fm,
@@ -397,6 +411,7 @@ def create_app() -> Flask:
                         "tasks": tasks,
                         "related": related,
                         "preview": preview,
+                        "rendered_html": rendered_html,
                     }
 
         hits = []
@@ -564,12 +579,15 @@ def create_app() -> Flask:
             selected = items[0].rel_path
 
         preview = ""
+        rendered_html = None
         status = ""
         if selected:
             status = next((item.status for item in items if item.rel_path == selected), "")
             file_path = ws.paths.outbox_dir / selected
             if file_path.exists():
                 preview = file_path.read_text(encoding="utf-8", errors="replace")
+                if file_path.suffix.lower() == ".md":
+                    rendered_html = _render_markdown(preview)
 
         return render_template(
             "outbox.html",
@@ -578,6 +596,7 @@ def create_app() -> Flask:
             selected=selected,
             status=status,
             preview=preview,
+            rendered_html=rendered_html,
         )
 
     @app.get("/calendar")

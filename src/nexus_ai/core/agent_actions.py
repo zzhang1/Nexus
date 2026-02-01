@@ -262,6 +262,18 @@ def propose_actions(ws: Workspace, actions: list[dict[str, Any]]) -> list[Propos
                     continue
                 new = _append_task_to_markdown(old, task)
             changes.append(ProposedChange(rel_path=rel, diff=_unified_diff(old, new, rel)))
+        elif t == "edit_block":
+            rel = _safe_rel_path(str(action["path"]))
+            abs_path = _knowledge_abs(ws, rel)
+            old = _read_text_or_empty(abs_path)
+            block_old = str(action.get("old", ""))
+            block_new = str(action.get("new", ""))
+            if not block_old:
+                raise ActionError("edit_block requires a non-empty 'old' block.")
+            if block_old not in old:
+                raise ActionError(f"edit_block could not find target block in {rel}.")
+            new = old.replace(block_old, block_new, 1)
+            changes.append(ProposedChange(rel_path=rel, diff=_unified_diff(old, new, rel)))
         elif t == "move_file":
             src = _safe_rel_path(str(action["from"]))
             dst = _safe_rel_path(str(action["to"]))
@@ -359,6 +371,19 @@ def apply_actions(ws: Workspace, actions: list[dict[str, Any]], *, require_appro
                 if _is_duplicate_task(ws, old, task):
                     continue
                 new = _append_task_to_markdown(old, task)
+            atomic_write_text(abs_path, new)
+            did_change = True
+        elif t == "edit_block":
+            rel = _safe_rel_path(str(action["path"]))
+            abs_path = _knowledge_abs(ws, rel)
+            old = _read_text_or_empty(abs_path)
+            block_old = str(action.get("old", ""))
+            block_new = str(action.get("new", ""))
+            if not block_old:
+                raise ActionError("edit_block requires a non-empty 'old' block.")
+            if block_old not in old:
+                raise ActionError(f"edit_block could not find target block in {rel}.")
+            new = old.replace(block_old, block_new, 1)
             atomic_write_text(abs_path, new)
             did_change = True
         elif t == "move_file":

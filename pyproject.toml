@@ -30,6 +30,7 @@ dev = [
 ]
 ui = [
   "flask>=3,<4",
+  "markdown>=3.6",
 ]
 web = [
   "duckduckgo-search>=6.2.13",

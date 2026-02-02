@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 @dataclass(frozen=True)
 class LlmConfig:
     provider: str = "openrouter"
-    model: str = "xiaomi/mimo-v2-flash:free"
-    weak_model: str | None = "xiaomi/mimo-v2-flash:free"
+    model: str = "nvidia/nemotron-3-nano-30b-a3b:free"
+    weak_model: str | None = "nvidia/nemotron-3-nano-30b-a3b:free"
     base_url: str | None = None
     api_key_env: str | None = None
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +67,62 @@ class KnowledgeAccess:
             body = body[:max_chars] + "\n\n... (truncated)"
             truncated = True
         return FileRead(path=rel, front_matter=doc.front_matter, content=body, truncated=truncated)
+
+    def list_files(
+        self,
+        *,
+        root: str | None = None,
+        recursive: bool = True,
+        limit: int = 1000,
+        extensions: list[str] | None = None,
+        include_hidden: bool = False,
+    ) -> list[dict[str, Any]]:
+        rel_root = (root or "").strip().lstrip("/").replace("\\", "/")
+        if rel_root.lower().startswith("knowledge/"):
+            rel_root = rel_root[len("knowledge/") :]
+        if rel_root.lower() == "knowledge":
+            rel_root = ""
+        if rel_root and rel_root.startswith("."):
+            raise ValueError(f"Unsafe root: {root!r}")
+        if ".." in Path(rel_root).parts:
+            raise ValueError(f"Unsafe root: {root!r}")
+
+        base = self.ws.paths.knowledge_dir
+        abs_root = (base / rel_root).resolve() if rel_root else base
+        if base not in abs_root.parents and abs_root != base:
+            raise ValueError(f"Root escapes Knowledge/: {root!r}")
+        if not abs_root.exists():
+            return []
+
+        if extensions is None:
+            exts = {".md"}
+        else:
+            exts = {str(ext).lower() for ext in extensions if str(ext).strip()}
+
+        def is_hidden(rel_path: Path) -> bool:
+            return any(part.startswith(".") for part in rel_path.parts)
+
+        items: list[dict[str, Any]] = []
+        iterator = abs_root.rglob("*") if recursive else abs_root.iterdir()
+        for p in iterator:
+            if not p.is_file():
+                continue
+            rel = p.relative_to(base)
+            if not include_hidden and is_hidden(rel):
+                continue
+            if exts and p.suffix.lower() not in exts:
+                continue
+            stat = p.stat()
+            items.append(
+                {
+                    "path": rel.as_posix(),
+                    "size": stat.st_size,
+                    "mtime": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                }
+            )
+            if len(items) >= limit:
+                break
+        return items
 
     @staticmethod
     def _safe_rel_path(rel_path: str) -> str | None:

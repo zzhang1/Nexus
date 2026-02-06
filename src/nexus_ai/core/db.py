@@ -441,11 +441,25 @@ class NexusDb:
             return conn.execute(
                 """
                 SELECT * FROM events
-                WHERE start_ts >= ? AND start_ts < ?
+                WHERE ((start_ts >= ? AND start_ts < ?)
+                   OR (recurrence_rule IS NOT NULL AND start_ts < ?))
+                  AND (status IS NULL OR status != 'cancelled')
                 ORDER BY start_ts
                 """,
-                (start_iso, end_iso),
+                (start_iso, end_iso, end_iso),
             ).fetchall()
+
+    def mark_event_cancelled(self, *, source: str, source_id: str) -> int:
+        with self.connect() as conn:
+            cur = conn.execute(
+                """
+                UPDATE events
+                SET status='cancelled'
+                WHERE source=? AND source_id=?
+                """,
+                (source, source_id),
+            )
+            return int(cur.rowcount or 0)
 
     def list_deadlines_between(self, *, start_iso: str, end_iso: str) -> list[sqlite3.Row]:
         with self.connect() as conn:

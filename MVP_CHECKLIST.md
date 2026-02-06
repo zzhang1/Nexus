@@ -43,7 +43,7 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
 
 ## 4) Ingestion Pipeline (`nexus ingest`)
 - [x] Read `0_Inbox/` and for each file:
-  - copy/move original into `Source/` and/or `Archive/` (preserve originals)
+  - copy/move original into `Source/` (preserve originals)
   - extract text via pluggable extractor (current: PDF/DOCX/text fallback)
   - convert to “clean Markdown” (no summarization requirement)
   - choose a suggested target path under `Knowledge/` (PARA top-level; user folder structure is a hint, not a rule)
@@ -82,13 +82,13 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
   - pull due/overdue tasks and high-priority open tasks
   - output a prioritized list with links back to source notes
 - [x] Recurrence expansion for near-term horizons (RRULE).
-- [ ] Implement “draft time-blocking” rule:
+- [x] Implement “draft time-blocking” rule:
   - only propose time blocks when calendar integration is present OR user provides availability
   - otherwise return list-only
-- [ ] Add minimal prioritization heuristics:
+- [x] Add minimal prioritization heuristics:
   - parse `p:P1/P2/P3`, `due:`, `effort:`
   - if ambiguous and high-stakes, ask a short clarifying question (CLI prompt)
-- [ ] Acceptance check: a note containing `- [ ] File taxes due:2026-04-15 p:P1` shows up appropriately in `week/month`.
+- [x] Acceptance check: a note containing `- [ ] File taxes due:2026-04-15 p:P1` shows up appropriately in `week/month`.
 
 ## 7) Chat (`nexus chat`)
 - [x] Implement `nexus chat "<query>"` using local retrieval + response synthesis.
@@ -114,11 +114,19 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
 - [ ] Ensure Outbox is for deliverables only (not required for Knowledge edits).
 
 ## 9) Tools & Integrations (Read-Only First)
-- [ ] Create a tool registry abstraction (MCP or direct APIs) with:
+- [x] Create a tool registry abstraction (MCP or direct APIs) with:
   - capability discovery
   - permission mode (`read_only` default; explicit enable for writes)
 - [x] Calendar integration MVP:
   - `nexus calendar sync` imports events into `events` table (read-only)
+- [x] Google Calendar integration (read-only first):
+  - OAuth client + token storage under `.assistant/`
+  - sync via `syncToken` with bounded time window
+  - calendar selection via config (default: primary)
+  - surface warnings/errors in CLI/UI
+- [x] Google Calendar write actions (post-read-only):
+  - create/edit/delete events with explicit approval
+  - write scopes and audit logging
 - [ ] Web search tool (optional in MVP, but wire the interface):
   - `search(query) -> results`
   - persist a sourced note into `Knowledge/3_Resources/` when used

@@ -17,7 +17,19 @@ from nexus_ai.core.calendar_sync import sync_calendars
 from nexus_ai.core.chat import generate_chat_payload
 from nexus_ai.core.config import load_config
 from nexus_ai.core.db import NexusDb
-from nexus_ai.core.ingest import ingest_inbox
+from nexus_ai.core.ingest import (
+    IngestReviewItem,
+    IngestReviewResult,
+    apply_ingest_actions,
+    ingest_inbox,
+)
+from nexus_ai.core.google_calendar import (
+    GoogleCalendarError,
+    create_google_event,
+    delete_google_event,
+    parse_event_ref,
+    update_google_event,
+)
 from nexus_ai.core.map_store import get_map_store
 from nexus_ai.core.markdown import split_front_matter
 from nexus_ai.core.outbox import delete_outbox_item, list_outbox_items, mark_outbox_approved
@@ -134,6 +146,26 @@ def _map_staleness(ws: Workspace) -> dict[str, int]:
             stale_files += 1
     deleted_files = len(existing - seen)
     return {"new": new_files, "stale": stale_files, "deleted": deleted_files}
+
+
+def _serialize_ingest_review(items: list[IngestReviewItem]) -> dict[str, Any]:
+    review_actions: list[dict[str, Any]] = []
+    inbox_paths: list[str] = []
+    serialized_items: list[dict[str, Any]] = []
+    for item in items:
+        inbox_paths.append(item.rel_inbox_path)
+        review_actions.extend(item.actions)
+        serialized_items.append(
+            {
+                "rel_inbox_path": item.rel_inbox_path,
+                "proposed": [{"rel_path": c.rel_path, "diff": c.diff} for c in item.proposed],
+            }
+        )
+    return {
+        "items": serialized_items,
+        "actions": review_actions,
+        "inbox_paths": inbox_paths,
+    }
 
 
 def _list_knowledge_dirs(ws: Workspace) -> list[str]:
@@ -318,7 +350,14 @@ def create_app() -> Flask:
                 if not _workspace_ready(ws):
                     flash("Initialize the workspace before ingesting.", "error")
                 else:
-                    result = ingest_inbox(ws)
+                    result = ingest_inbox(ws, review=True)
+                    if isinstance(result, IngestReviewResult) and result.review_items:
+                        payload = _serialize_ingest_review(result.review_items)
+                        payload["files_ingested"] = result.files_ingested
+                        session["pending_ingest"] = payload
+                        flash("Ingest needs review. Please approve changes in Inbox.", "warning")
+                        return redirect(url_for("inbox"))
+                    session.pop("pending_ingest", None)
                     flash(f"Ingested {result.files_ingested} file(s).", "success")
             return redirect(url_for("overview"))
 
@@ -455,6 +494,7 @@ def create_app() -> Flask:
         error = None
         note = None
         plan_obj = None
+        applied = False
 
         if request.method == "POST":
             action = (request.form.get("action") or "").strip()
@@ -486,8 +526,10 @@ def create_app() -> Flask:
                         result = apply_actions(ws, actions, require_approval=False)
                         flash(result, "success")
                         payload = {"mode": "actions", "actions": actions}
-                        proposed = propose_actions(ws, actions)
-                        has_diffs = any(change.diff for change in proposed)
+                        proposed = []
+                        has_diffs = False
+                        note = result
+                        applied = True
                     except (json.JSONDecodeError, ActionError) as exc:
                         error = str(exc)
 
@@ -501,6 +543,7 @@ def create_app() -> Flask:
             note=note,
             plan_obj=plan_obj,
             has_diffs=has_diffs,
+            applied=applied,
         )
 
     @app.get("/plan")
@@ -537,21 +580,48 @@ def create_app() -> Flask:
         if err or ws is None:
             return redirect(url_for("workspace", error=err or ""))
 
+        review_payload = session.get("pending_ingest")
+
         if request.method == "POST":
             action = (request.form.get("action") or "").strip()
             if action == "ingest":
                 if not _workspace_ready(ws):
                     flash("Initialize the workspace before ingesting.", "error")
                 else:
-                    result = ingest_inbox(ws)
-                    flash(f"Ingested {result.files_ingested} file(s).", "success")
-            return redirect(url_for("inbox"))
+                    result = ingest_inbox(ws, review=True)
+                    if isinstance(result, IngestReviewResult) and result.review_items:
+                        review_payload = _serialize_ingest_review(result.review_items)
+                        review_payload["files_ingested"] = result.files_ingested
+                        session["pending_ingest"] = review_payload
+                    else:
+                        session.pop("pending_ingest", None)
+                        flash(f"Ingested {result.files_ingested} file(s).", "success")
+                return redirect(url_for("inbox"))
+            if action == "apply_ingest":
+                approved = request.form.get("approved") == "on"
+                if not approved:
+                    flash("Please confirm you reviewed the diffs before applying changes.", "error")
+                else:
+                    try:
+                        actions = json.loads(request.form.get("actions_json") or "[]")
+                        inbox_paths = json.loads(request.form.get("inbox_paths_json") or "[]")
+                        result = apply_ingest_actions(
+                            ws,
+                            actions=actions,
+                            inbox_paths=inbox_paths,
+                        )
+                        flash(result, "success")
+                        session.pop("pending_ingest", None)
+                    except (json.JSONDecodeError, ActionError) as exc:
+                        flash(str(exc), "error")
+                return redirect(url_for("inbox"))
 
         inbox_files = _list_inbox_files(ws)
         return render_template(
             "inbox.html",
             workspace=ws,
             inbox_files=inbox_files,
+            review_payload=review_payload,
         )
 
     @app.get("/outbox")
@@ -614,6 +684,101 @@ def create_app() -> Flask:
                 else:
                     result = sync_calendars(ws)
                     flash(f"Upserted {result.events_upserted} event(s).", "success")
+                    if result.warnings:
+                        for warning in result.warnings:
+                            flash(warning, "error")
+            elif action == "create_event":
+                cfg = load_config(ws.paths.config_yaml)
+                if request.form.get("approved_write") != "on":
+                    flash("Confirm approval before writing to Google Calendar.", "error")
+                    return redirect(url_for("calendar"))
+                try:
+                    result = create_google_event(
+                        ws,
+                        cfg,
+                        calendar_id=(request.form.get("calendar_id") or "primary").strip() or "primary",
+                        title=(request.form.get("title") or "").strip(),
+                        start=(request.form.get("start") or "").strip(),
+                        end=(request.form.get("end") or "").strip() or None,
+                        all_day=request.form.get("all_day") == "on",
+                        timezone_name=(request.form.get("timezone_name") or "").strip() or None,
+                        description=(request.form.get("description") or "").strip() or None,
+                        location=(request.form.get("location") or "").strip() or None,
+                        recurrence_rrule=(request.form.get("recurrence_rrule") or "").strip() or None,
+                    )
+                    flash(
+                        f"Created event {result.source_id} ({result.status}).",
+                        "success",
+                    )
+                except GoogleCalendarError as exc:
+                    flash(str(exc), "error")
+            elif action == "update_event":
+                cfg = load_config(ws.paths.config_yaml)
+                if request.form.get("approved_write") != "on":
+                    flash("Confirm approval before writing to Google Calendar.", "error")
+                    return redirect(url_for("calendar"))
+                try:
+                    cal_id, ev_id = parse_event_ref(
+                        source_id=(request.form.get("source_id") or "").strip() or None,
+                        calendar_id=(request.form.get("calendar_id") or "").strip() or None,
+                        event_id=(request.form.get("event_id") or "").strip() or None,
+                    )
+                    all_day_mode = (request.form.get("all_day_mode") or "").strip()
+                    all_day_value: bool | None
+                    if all_day_mode == "all_day":
+                        all_day_value = True
+                    elif all_day_mode == "timed":
+                        all_day_value = False
+                    else:
+                        all_day_value = None
+                    result = update_google_event(
+                        ws,
+                        cfg,
+                        calendar_id=cal_id,
+                        event_id=ev_id,
+                        title=(request.form.get("title") or "").strip() or None,
+                        start=(request.form.get("start") or "").strip() or None,
+                        end=(request.form.get("end") or "").strip() or None,
+                        clear_end=request.form.get("clear_end") == "on",
+                        all_day=all_day_value,
+                        timezone_name=(request.form.get("timezone_name") or "").strip() or None,
+                        description=(request.form.get("description") or "").strip() or None,
+                        clear_description=request.form.get("clear_description") == "on",
+                        location=(request.form.get("location") or "").strip() or None,
+                        clear_location=request.form.get("clear_location") == "on",
+                        recurrence_rrule=(request.form.get("recurrence_rrule") or "").strip() or None,
+                        clear_recurrence=request.form.get("clear_recurrence") == "on",
+                        status=(request.form.get("status") or "").strip() or None,
+                    )
+                    flash(
+                        f"Updated event {result.source_id} ({result.status}).",
+                        "success",
+                    )
+                except GoogleCalendarError as exc:
+                    flash(str(exc), "error")
+            elif action == "delete_event":
+                cfg = load_config(ws.paths.config_yaml)
+                if request.form.get("approved_write") != "on":
+                    flash("Confirm approval before writing to Google Calendar.", "error")
+                    return redirect(url_for("calendar"))
+                try:
+                    cal_id, ev_id = parse_event_ref(
+                        source_id=(request.form.get("source_id") or "").strip() or None,
+                        calendar_id=(request.form.get("calendar_id") or "").strip() or None,
+                        event_id=(request.form.get("event_id") or "").strip() or None,
+                    )
+                    result = delete_google_event(
+                        ws,
+                        cfg,
+                        calendar_id=cal_id,
+                        event_id=ev_id,
+                    )
+                    flash(
+                        f"Deleted event {result.source_id} ({result.status}).",
+                        "success",
+                    )
+                except GoogleCalendarError as exc:
+                    flash(str(exc), "error")
             return redirect(url_for("calendar"))
 
         cfg = load_config(ws.paths.config_yaml)

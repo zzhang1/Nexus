@@ -8,9 +8,10 @@
     <h2>Ask Nexus</h2>
     <p>Questions about your knowledge base, plans for today, or actions to update notes.</p>
   </div>
-  <form class="stack" method="post">
+  <form class="stack" method="post" data-loading-title="Thinking..." data-loading-subtitle="Reading your notes and reasoning about the response.">
     <input type="hidden" name="action" value="ask" />
-    <textarea name="query" placeholder="What should I focus on today?" rows="4">{{ query }}</textarea>
+    <textarea name="query" placeholder="What should I focus on today?" rows="4" data-ctrl-enter="true">{{ query }}</textarea>
+    <div class="muted">Tip: Press Ctrl+Enter (Cmd+Enter on Mac) to send.</div>
     <button class="btn primary" type="submit">Ask Nexus</button>
   </form>
 </div>
@@ -35,21 +36,31 @@
   {% elif payload.mode == 'actions' %}
     <div class="card">
       <div class="card-header">
-        <h3>Proposed Changes</h3>
-        <span class="tag">Review required</span>
+        <h3>{{ "Changes Applied" if applied else "Proposed Changes" }}</h3>
+        {% if applied %}
+          <span class="tag">Applied</span>
+        {% else %}
+          <span class="tag">Review required</span>
+        {% endif %}
       </div>
       {% if note %}<div class="muted">{{ note }}</div>{% endif %}
-      {% if proposed %}
+      {% if proposed and has_diffs %}
         {% for change in proposed %}
           {% if change.diff %}
           <pre class="code-block">{{ change.diff }}</pre>
           {% endif %}
         {% endfor %}
       {% else %}
-        <div class="muted">No changes needed.</div>
+        <div class="muted">
+          {% if applied %}
+            Changes applied and reindexed.
+          {% else %}
+            No changes needed.
+          {% endif %}
+        </div>
       {% endif %}
-      {% if has_diffs %}
-      <form method="post" class="stack">
+      {% if has_diffs and not applied %}
+      <form method="post" class="stack" data-loading-title="Applying changes..." data-loading-subtitle="Writing updates and reindexing Knowledge.">
         <input type="hidden" name="action" value="apply" />
         <input type="hidden" name="actions_json" value='{{ payload.actions | tojson }}' />
         <label class="checkbox">

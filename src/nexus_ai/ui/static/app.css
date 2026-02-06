@@ -329,6 +329,52 @@ th{font-size:0.8rem; color:var(--muted); text-transform:uppercase; letter-spacin
   transition: opacity 0.2s ease;
 }
 
+.loading-overlay{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(31,26,20,0.25);
+  opacity:0;
+  pointer-events:none;
+  transition: opacity 0.2s ease;
+  z-index:200;
+}
+.loading-overlay.active{
+  opacity:1;
+  pointer-events:auto;
+}
+.loading-card{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  padding:18px 22px;
+  border-radius: var(--radius);
+  border:1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.loading-title{
+  font-weight:600;
+  font-size:1rem;
+}
+.loading-subtitle{
+  color: var(--muted);
+  font-size:0.85rem;
+}
+.spinner{
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  border:3px solid rgba(47,125,102,0.2);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin{
+  to{transform: rotate(360deg);}
+}
+
 .app.sidebar-collapsed .nav-label,
 .app.sidebar-collapsed .workspace-chip,
 .app.sidebar-collapsed .sidebar-footer,

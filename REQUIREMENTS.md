@@ -8,11 +8,12 @@ Help a user stay organized and productive by turning their existing files and no
 - **CLI-first experience:** Users primarily interact via `nexus ...` commands (web app later).
 - **Safe action delivery:** Outbound artifacts are staged in `Outbox/` for review.
 - **Extensible tools:** External systems (calendar/email/contacts/tasks/web search) are accessed via tools (MCP or APIs) with permission escalation.
+- **Keep it simple and intuitive:** Prefer small, easy-to-understand features over complex frameworks or heavy hard-coded rules. The product should feel intuitive in daily use and avoid common knowledge-management pitfalls (over-structuring, duplicate systems, and brittle workflows).
 
 ## Functional Requirements
 ### Ingestion & Organization
 - Ingest files from `0_Inbox/`, extract text, and write a Markdown representation into `Knowledge/` using PARA as the top-level structure.
-- Preserve originals under `Source/` and/or `Archive/` (no destructive edits to originals).
+- Preserve originals under `Source/` (no destructive edits to originals).
 - Create/edit files in `Knowledge/` as part of normal assistant operation and commit changes to the `Knowledge/` Git repo.
 - Support user-defined subfolders under PARA and allow Nexus to create/move folders/files when instructed.
 
@@ -42,9 +43,8 @@ Help a user stay organized and productive by turning their existing files and no
 - No automatic “master task index” file in `Knowledge/` (use CLI views instead).
 
 ## Validation (Acceptance Checks)
-- Given a mixed set of PDFs/images/docs in `0_Inbox/`, `nexus ingest` produces Markdown in `Knowledge/` and archives originals.
+- Given a mixed set of PDFs/images/docs in `0_Inbox/`, `nexus ingest` produces Markdown in `Knowledge/` and moves originals into `Source/`.
 - Editing a Markdown file manually, then running `nexus sync`, updates the index and planning outputs.
 - A note containing `- [ ] File taxes due:2026-04-15 p:P1` appears in `nexus today|week` at the right time.
 - Calendar events imported via integration affect time-window answers and (when enabled) time-block proposals.
 - Outbox artifacts can be reviewed and approved without mutating unrelated Knowledge files.
-

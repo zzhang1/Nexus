@@ -19,7 +19,7 @@ def test_ingest_recurses_inbox_and_preserves_paths(tmp_path: Path):
     assert result.files_ingested == 1
 
     assert (ws.paths.source_dir / "Taxes" / "2025" / "w2.txt").exists()
-    assert (ws.paths.archive_dir / "Taxes" / "2025" / "w2.txt").exists()
+    assert (ws.paths.archive_dir / "Taxes" / "2025" / "w2.txt").exists() is False
     assert not nested.exists()
 
     # Loose suggestion: taxes should land under 2_Areas/Finances/Taxes/(year)/...

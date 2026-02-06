@@ -37,7 +37,7 @@ The application operates on a user-defined root.
 ├── Source/                 # Original user files (Immutable)
 ├── Knowledge/              # AI-managed Markdown files (Git Repo)
 ├── Outbox/                 # Draft actions awaiting review
-└── Archive/                # Processed originals
+└── Archive/                # Reserved for future use (unused by ingest today)
 ```
 
 **PARA structure (within `Knowledge/`):**
@@ -166,6 +166,8 @@ All chat interactions resolve to one of three explicit intents, which drives beh
 
 This intent model allows both free-form chat and CLI commands (`nexus chat ...`) to be deterministic and safe.
 
+**Tool loop (internal):** The model may request read-only tools using `mode: "tool"` during a multi-step loop. The final response shown to the user must still be `answer`, `plan`, or `actions`.
+
 ### Action Schema (JSON)
 When the intent is **Actions**, the model must return JSON that specifies edits under `Knowledge/`:
 ```json
@@ -189,11 +191,12 @@ When the intent is **Actions**, the model must return JSON that specifies edits 
 * All actions are previewed as diffs and require approval before being applied.
 
 ### Read-Only Tool Actions (JSON)
-Before proposing edits, the model may request read-only tools. These do not modify files.
+Before proposing edits, the model may request read-only tools using `mode: "tool"`. These do not modify files and must be followed by a final `answer|plan|actions` response.
 ```json
-{"type": "search", "query": "keyword", "limit": 8}
-{"type": "find_files", "query": "keyword", "limit": 20}
-{"type": "read_file", "path": "2_Areas/Home/Home.md", "max_chars": 4000}
+{"mode": "tool", "tool_calls": [{"id": "t1", "type": "search", "args": {"query": "keyword", "limit": 8}}]}
+{"mode": "tool", "tool_calls": [{"id": "t1", "type": "find_files", "args": {"query": "keyword", "limit": 20}}]}
+{"mode": "tool", "tool_calls": [{"id": "t1", "type": "list_files", "args": {"root": "Knowledge/", "recursive": true, "limit": 1000}}]}
+{"mode": "tool", "tool_calls": [{"id": "t1", "type": "read_file", "args": {"path": "2_Areas/Home/Home.md", "max_chars": 4000}}]}
 ```
 
 ## 2. Tech Stack
@@ -269,7 +272,7 @@ defaults:
 **2.3 Storage & Sync**
 *   Write the Markdown file to `Knowledge/`.
 *   Call `knowledge_engine.upsert_document()` with the new Markdown content.
-*   Move original to `Archive/`.
+*   Move original to `Source/`.
 *   Commit to Git.
 *   **Initial run:** Treat the first execution as a larger `0_Inbox` ingestion (no separate “cold start” system required).
 
@@ -298,7 +301,7 @@ defaults:
 *   `nexus init`: Setup folders, DBs, and default Config.
 *   `nexus ingest`: Run the pipeline on `0_Inbox`.
 *   `nexus chat [query]`: Run the RAG loop.
-*   `nexus sync`: Detect changes in `Knowledge/` (and mirrored `Source/`/`Archive/` where relevant) and update the GraphRAG + structured stores idempotently.
+*   `nexus sync`: Detect changes in `Knowledge/` (and `Source/` where relevant) and update the GraphRAG + structured stores idempotently.
 *   `nexus calendar sync`: Pull calendar events from integrations and update `events`.
 *   `nexus today|week|month`: Summarize across tasks, deadlines, and events; optionally propose time blocks.
 *   `nexus outbox list|open|approve|delete`: Manage staged deliverables.

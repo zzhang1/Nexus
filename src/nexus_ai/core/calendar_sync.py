@@ -7,6 +7,7 @@ from pathlib import Path
 from icalendar import Calendar
 
 from nexus_ai.core.config import load_config
+from nexus_ai.core.google_calendar import GoogleCalendarError, sync_google_calendars
 from nexus_ai.core.db import NexusDb
 from nexus_ai.core.hashing import stable_id
 from nexus_ai.core.workspace import Workspace
@@ -15,6 +16,7 @@ from nexus_ai.core.workspace import Workspace
 @dataclass(frozen=True)
 class CalendarSyncResult:
     events_upserted: int
+    warnings: tuple[str, ...] = ()
 
 
 def _to_iso(dt) -> str:
@@ -30,8 +32,8 @@ def sync_calendars(ws: Workspace) -> CalendarSyncResult:
     ws.init_workspace()
     cfg = load_config(ws.paths.config_yaml)
     ics_paths = [Path(p).expanduser() for p in cfg.calendar.ics_paths]
-    if not ics_paths:
-        return CalendarSyncResult(events_upserted=0)
+    warnings: list[str] = []
+    total = 0
 
     events: list[dict] = []
     for p in ics_paths:
@@ -63,6 +65,14 @@ def sync_calendars(ws: Workspace) -> CalendarSyncResult:
 
     db = NexusDb(ws.paths.db_path)
     db.init_schema()
-    count = db.upsert_events(events)
-    return CalendarSyncResult(events_upserted=count)
+    if events:
+        count = db.upsert_events(events)
+        total += count
 
+    try:
+        google_result = sync_google_calendars(ws, cfg)
+        total += google_result.events_upserted
+    except GoogleCalendarError as exc:
+        warnings.append(str(exc))
+
+    return CalendarSyncResult(events_upserted=total, warnings=tuple(warnings))

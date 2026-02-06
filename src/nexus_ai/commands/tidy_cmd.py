@@ -6,7 +6,6 @@ import typer
 from rich.console import Console
 
 from nexus_ai.commands.common import workspace_from_ctx
-from nexus_ai.core.tidy import run_tidy
 
 console = Console()
 
@@ -24,6 +23,8 @@ def tidy(
     """
     Suggest and apply Knowledge/ cleanup actions (rename/move/archive), with approval.
     """
+
+    from nexus_ai.core.tidy import run_tidy
 
     ws = workspace_from_ctx(ctx, root)
     answer = run_tidy(ws, focus=focus, stale_days=stale_days)

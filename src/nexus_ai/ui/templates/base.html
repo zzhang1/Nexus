@@ -61,6 +61,15 @@
       </main>
     </div>
     <div class="sidebar-overlay" data-action="toggle-sidebar"></div>
+    <div class="loading-overlay" id="loading-overlay" aria-hidden="true">
+      <div class="loading-card" role="status" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <div>
+          <div class="loading-title" id="loading-title">Working...</div>
+          <div class="loading-subtitle" id="loading-subtitle">This may take a moment. Please keep this tab open.</div>
+        </div>
+      </div>
+    </div>
     <script src="{{ url_for('static', filename='app.js') }}"></script>
   </body>
 </html>

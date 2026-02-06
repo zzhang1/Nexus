@@ -136,7 +136,7 @@ Nexus uses a simple workspace folder:
 - `Knowledge/` — your readable notes (the “territory”)
 - `.assistant/` — the index/database and settings (the “map”)
 - `Outbox/` — drafts and deliverables waiting for review
-- `Archive/` — processed originals
+- `Archive/` — reserved for future use (unused by ingest today)
 
 ## Optional Tools and Integrations
 Nexus is designed to plug into other systems when you want:

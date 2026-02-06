@@ -4,11 +4,11 @@
 
 {% block actions %}
 <div class="action-row">
-  <form method="post">
+  <form method="post" data-loading-title="Syncing..." data-loading-subtitle="Refreshing the Knowledge index.">
     <input type="hidden" name="action" value="sync" />
     <button class="btn ghost" type="submit">Sync Knowledge</button>
   </form>
-  <form method="post">
+  <form method="post" data-loading-title="Ingesting..." data-loading-subtitle="Processing inbox files and preparing review.">
     <input type="hidden" name="action" value="ingest" />
     <button class="btn ghost" type="submit">Ingest Inbox</button>
   </form>
@@ -37,7 +37,7 @@
     <h2>Initialize your workspace</h2>
     <p>Set up the local folder structure and seed configuration files.</p>
   </div>
-  <form method="post">
+  <form method="post" data-loading-title="Initializing workspace..." data-loading-subtitle="Creating folders and configuration files.">
     <input type="hidden" name="action" value="init" />
     <button class="btn primary" type="submit">Initialize</button>
   </form>

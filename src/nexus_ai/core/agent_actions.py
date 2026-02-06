@@ -13,6 +13,7 @@ from litellm import completion
 
 from nexus_ai.core.filesystem import atomic_write_text
 from nexus_ai.core.git_ops import commit_all
+from nexus_ai.core.llm_protocol import ProtocolError, parse_json_object
 from nexus_ai.core.markdown import ensure_minimal_front_matter, split_front_matter
 from nexus_ai.core.config import load_config, resolve_llm_settings
 from nexus_ai.core.runtime import ensure_litellm_quiet
@@ -296,7 +297,13 @@ def propose_actions(ws: Workspace, actions: list[dict[str, Any]]) -> list[Propos
     return changes
 
 
-def apply_actions(ws: Workspace, actions: list[dict[str, Any]], *, require_approval: bool = True) -> str:
+def apply_actions(
+    ws: Workspace,
+    actions: list[dict[str, Any]],
+    *,
+    require_approval: bool = True,
+    commit_message: str | None = None,
+) -> str:
     """
     Apply actions to Knowledge/ with optional user approval. Always re-index and Git-commit after changes.
     """
@@ -408,7 +415,7 @@ def apply_actions(ws: Workspace, actions: list[dict[str, Any]], *, require_appro
 
     # Re-index and commit.
     sync_knowledge(ws)
-    commit_all(ws.paths.knowledge_dir, "Update Knowledge from chat")
+    commit_all(ws.paths.knowledge_dir, commit_message or "Update Knowledge from chat")
     return "Changes applied and reindexed."
 
 
@@ -416,24 +423,7 @@ def parse_agent_json(text: str) -> dict[str, Any]:
     """
     Extract and parse a JSON object from an LLM response.
     """
-
-    # Try direct parse first.
     try:
-        obj = json.loads(text)
-        return obj if isinstance(obj, dict) else {}
-    except Exception:
-        pass
-
-    # Otherwise extract the first {...} block.
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        raise ActionError("Model response did not contain JSON.")
-    snippet = text[start : end + 1]
-    try:
-        obj = json.loads(snippet)
-    except Exception as e:
-        raise ActionError(f"Failed to parse JSON: {e}") from e
-    if not isinstance(obj, dict):
-        raise ActionError("Top-level JSON must be an object.")
-    return obj
+        return parse_json_object(text)
+    except ProtocolError as exc:
+        raise ActionError(str(exc)) from exc

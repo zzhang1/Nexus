@@ -3,7 +3,7 @@
 {% block title %}Inbox{% endblock %}
 
 {% block actions %}
-<form method="post">
+<form method="post" data-loading-title="Ingesting..." data-loading-subtitle="Processing inbox files and preparing review.">
   <input type="hidden" name="action" value="ingest" />
   <button class="btn primary" type="submit">Run Ingest</button>
 </form>
@@ -25,4 +25,34 @@
   <div class="muted">Inbox is empty.</div>
   {% endif %}
 </div>
+
+{% if review_payload and review_payload["items"] %}
+<div class="card">
+  <div class="card-header">
+    <h3>Proposed Changes</h3>
+    <span class="tag">Review required</span>
+  </div>
+  {% if review_payload["files_ingested"] %}
+  <div class="muted">{{ review_payload["files_ingested"] }} file(s) already ingested. The changes below need approval.</div>
+  {% endif %}
+  {% for item in review_payload["items"] %}
+    <div class="muted">From Inbox: {{ item.rel_inbox_path }}</div>
+    {% for change in item.proposed %}
+      {% if change.diff %}
+      <pre class="code-block">{{ change.diff }}</pre>
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+  <form method="post" class="stack" data-loading-title="Applying ingest changes..." data-loading-subtitle="Writing notes and reindexing Knowledge.">
+    <input type="hidden" name="action" value="apply_ingest" />
+    <input type="hidden" name="actions_json" value='{{ review_payload["actions"] | tojson }}' />
+    <input type="hidden" name="inbox_paths_json" value='{{ review_payload["inbox_paths"] | tojson }}' />
+    <label class="checkbox">
+      <input type="checkbox" name="approved" />
+      I reviewed the diffs and approve these changes.
+    </label>
+    <button class="btn primary" type="submit">Apply Changes</button>
+  </form>
+</div>
+{% endif %}
 {% endblock %}

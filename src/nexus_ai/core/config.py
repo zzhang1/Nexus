@@ -7,6 +7,8 @@ from typing import Any
 import yaml
 from dotenv import load_dotenv
 
+INTEGRATION_MODES = {"read_only", "write_enabled"}
+
 
 @dataclass(frozen=True)
 class LlmConfig:
@@ -24,12 +26,24 @@ class LlmConfig:
 @dataclass(frozen=True)
 class CalendarConfig:
     ics_paths: tuple[str, ...] = ()
+    google_enabled: bool = False
+    google_client_secrets_path: str | None = None
+    google_token_path: str | None = None
+    google_calendar_ids: tuple[str, ...] = ()
+    google_sync_past_days: int = 30
+    google_sync_future_days: int = 365
+
+
+@dataclass(frozen=True)
+class IntegrationsConfig:
+    mode: str = "read_only"
 
 
 @dataclass(frozen=True)
 class AppConfig:
     llm: LlmConfig = LlmConfig()
     calendar: CalendarConfig = CalendarConfig()
+    integrations: IntegrationsConfig = IntegrationsConfig()
 
 
 @dataclass(frozen=True)
@@ -50,6 +64,22 @@ def save_yaml(path: Path, data: dict[str, Any]) -> None:
     path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
 
+def parse_integration_mode(mode: str | None) -> str:
+    value = str(mode or "").strip().lower()
+    if value not in INTEGRATION_MODES:
+        raise ValueError(
+            f"Invalid integrations mode {mode!r}. Use one of: {', '.join(sorted(INTEGRATION_MODES))}."
+        )
+    return value
+
+
+def normalize_integration_mode(mode: str | None) -> str:
+    value = str(mode or "").strip().lower()
+    if value in INTEGRATION_MODES:
+        return value
+    return IntegrationsConfig().mode
+
+
 def load_config(config_path: Path) -> AppConfig:
     load_dotenv(override=False)
     data = load_yaml(config_path)
@@ -64,8 +94,22 @@ def load_config(config_path: Path) -> AppConfig:
         enrich_enabled=bool(enrich_raw.get("enabled", LlmConfig().enrich_enabled)),
         enrich_max_chars=int(enrich_raw.get("max_chars", LlmConfig().enrich_max_chars)),
     )
-    calendar = CalendarConfig(ics_paths=tuple((data.get("calendar", {}) or {}).get("ics_paths", ()) or ()))
-    return AppConfig(llm=llm, calendar=calendar)
+    calendar_raw = data.get("calendar", {}) or {}
+    google_raw = calendar_raw.get("google", {}) or {}
+    calendar = CalendarConfig(
+        ics_paths=tuple(calendar_raw.get("ics_paths", ()) or ()),
+        google_enabled=bool(google_raw.get("enabled", False)),
+        google_client_secrets_path=google_raw.get("client_secrets_path"),
+        google_token_path=google_raw.get("token_path"),
+        google_calendar_ids=tuple(google_raw.get("calendar_ids", ()) or ()),
+        google_sync_past_days=int(google_raw.get("sync_past_days", 30)),
+        google_sync_future_days=int(google_raw.get("sync_future_days", 365)),
+    )
+    integrations_raw = data.get("integrations", {}) or {}
+    integrations = IntegrationsConfig(
+        mode=normalize_integration_mode(integrations_raw.get("mode", IntegrationsConfig().mode)),
+    )
+    return AppConfig(llm=llm, calendar=calendar, integrations=integrations)
 
 
 def load_preferences(preferences_path: Path) -> Preferences:
@@ -92,9 +136,31 @@ def default_config_dict() -> dict[str, Any]:
                 "max_chars": LlmConfig().enrich_max_chars,
             },
         },
-        "calendar": {"ics_paths": []},
+        "calendar": {
+            "ics_paths": [],
+            "google": {
+                "enabled": False,
+                "client_secrets_path": "",
+                "token_path": "",
+                "calendar_ids": ["primary"],
+                "sync_past_days": 30,
+                "sync_future_days": 365,
+            },
+        },
         "integrations": {"mode": "read_only"},
     }
+
+
+def set_integrations_mode(config_path: Path, *, mode: str) -> str:
+    normalized = parse_integration_mode(mode)
+    data = load_yaml(config_path)
+    integrations_raw = data.get("integrations")
+    if not isinstance(integrations_raw, dict):
+        integrations_raw = {}
+    integrations_raw["mode"] = normalized
+    data["integrations"] = integrations_raw
+    save_yaml(config_path, data)
+    return normalized
 
 
 def resolve_llm_settings(llm: LlmConfig) -> dict[str, str | None]:

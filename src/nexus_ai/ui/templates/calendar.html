@@ -3,7 +3,7 @@
 {% block title %}Calendar{% endblock %}
 
 {% block actions %}
-<form method="post">
+<form method="post" data-loading-title="Syncing calendars..." data-loading-subtitle="Fetching and updating upcoming events.">
   <input type="hidden" name="action" value="sync" />
   <button class="btn primary" type="submit">Sync Calendars</button>
 </form>
@@ -77,5 +77,172 @@
   {% else %}
   <div class="muted">No upcoming events.</div>
   {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2>Google Event Writes</h2>
+    <span class="tag">Review required</span>
+  </div>
+  <div class="muted">Requires write auth via <code>nexus calendar auth --write</code>.</div>
+
+  <details>
+    <summary>Create event</summary>
+    <form method="post" class="stack" data-loading-title="Creating event..." data-loading-subtitle="Sending event to Google Calendar and updating local store.">
+      <input type="hidden" name="action" value="create_event" />
+      <div class="field">
+        <label>Calendar ID</label>
+        <input type="text" name="calendar_id" value="primary" />
+      </div>
+      <div class="field">
+        <label>Title</label>
+        <input type="text" name="title" required />
+      </div>
+      <div class="field">
+        <label>Start (RFC3339 or YYYY-MM-DD)</label>
+        <input type="text" name="start" required />
+      </div>
+      <div class="field">
+        <label>End (optional)</label>
+        <input type="text" name="end" />
+      </div>
+      <label class="checkbox">
+        <input type="checkbox" name="all_day" />
+        All day
+      </label>
+      <div class="field">
+        <label>Timezone (timed events)</label>
+        <input type="text" name="timezone_name" placeholder="America/New_York" />
+      </div>
+      <div class="field">
+        <label>Description</label>
+        <textarea name="description" rows="3"></textarea>
+      </div>
+      <div class="field">
+        <label>Location</label>
+        <input type="text" name="location" />
+      </div>
+      <div class="field">
+        <label>RRULE (optional)</label>
+        <input type="text" name="recurrence_rrule" placeholder="FREQ=WEEKLY;BYDAY=MO" />
+      </div>
+      <label class="checkbox">
+        <input type="checkbox" name="approved_write" />
+        I approve writing this event to Google Calendar.
+      </label>
+      <button class="btn primary" type="submit">Create Event</button>
+    </form>
+  </details>
+
+  <details>
+    <summary>Update event</summary>
+    <form method="post" class="stack" data-loading-title="Updating event..." data-loading-subtitle="Sending event update to Google Calendar and syncing local state.">
+      <input type="hidden" name="action" value="update_event" />
+      <div class="field">
+        <label>Source ID (<code>calendar_id:event_id</code>)</label>
+        <input type="text" name="source_id" />
+      </div>
+      <div class="muted">Or provide calendar/event ids separately.</div>
+      <div class="field">
+        <label>Calendar ID</label>
+        <input type="text" name="calendar_id" />
+      </div>
+      <div class="field">
+        <label>Event ID</label>
+        <input type="text" name="event_id" />
+      </div>
+      <div class="field">
+        <label>Title</label>
+        <input type="text" name="title" />
+      </div>
+      <div class="field">
+        <label>Start</label>
+        <input type="text" name="start" />
+      </div>
+      <div class="field">
+        <label>End</label>
+        <input type="text" name="end" />
+      </div>
+      <div class="field">
+        <label>Event type when start/end is supplied</label>
+        <select name="all_day_mode">
+          <option value="">Do not change type</option>
+          <option value="all_day">All day</option>
+          <option value="timed">Timed</option>
+        </select>
+      </div>
+      <label class="checkbox">
+        <input type="checkbox" name="clear_end" />
+        Clear end (all-day only)
+      </label>
+      <div class="field">
+        <label>Timezone (timed events)</label>
+        <input type="text" name="timezone_name" placeholder="America/New_York" />
+      </div>
+      <div class="field">
+        <label>Description</label>
+        <textarea name="description" rows="3"></textarea>
+      </div>
+      <label class="checkbox">
+        <input type="checkbox" name="clear_description" />
+        Clear description
+      </label>
+      <div class="field">
+        <label>Location</label>
+        <input type="text" name="location" />
+      </div>
+      <label class="checkbox">
+        <input type="checkbox" name="clear_location" />
+        Clear location
+      </label>
+      <div class="field">
+        <label>RRULE</label>
+        <input type="text" name="recurrence_rrule" placeholder="FREQ=WEEKLY;BYDAY=MO" />
+      </div>
+      <label class="checkbox">
+        <input type="checkbox" name="clear_recurrence" />
+        Clear recurrence
+      </label>
+      <div class="field">
+        <label>Status</label>
+        <select name="status">
+          <option value="">Do not change</option>
+          <option value="confirmed">confirmed</option>
+          <option value="tentative">tentative</option>
+          <option value="cancelled">cancelled</option>
+        </select>
+      </div>
+      <label class="checkbox">
+        <input type="checkbox" name="approved_write" />
+        I approve writing this update to Google Calendar.
+      </label>
+      <button class="btn primary" type="submit">Update Event</button>
+    </form>
+  </details>
+
+  <details>
+    <summary>Delete event</summary>
+    <form method="post" class="stack" data-loading-title="Deleting event..." data-loading-subtitle="Deleting event in Google Calendar and marking local record cancelled.">
+      <input type="hidden" name="action" value="delete_event" />
+      <div class="field">
+        <label>Source ID (<code>calendar_id:event_id</code>)</label>
+        <input type="text" name="source_id" />
+      </div>
+      <div class="muted">Or provide calendar/event ids separately.</div>
+      <div class="field">
+        <label>Calendar ID</label>
+        <input type="text" name="calendar_id" />
+      </div>
+      <div class="field">
+        <label>Event ID</label>
+        <input type="text" name="event_id" />
+      </div>
+      <label class="checkbox">
+        <input type="checkbox" name="approved_write" />
+        I approve deleting this Google Calendar event.
+      </label>
+      <button class="btn primary" type="submit">Delete Event</button>
+    </form>
+  </details>
 </div>
 {% endblock %}

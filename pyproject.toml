@@ -35,6 +35,11 @@ ui = [
 web = [
   "duckduckgo-search>=6.2.13",
 ]
+gcal = [
+  "google-api-python-client>=2.137.0",
+  "google-auth>=2.33.0",
+  "google-auth-oauthlib>=1.2.1",
+]
 
 [project.scripts]
 nexus = "nexus_ai.cli:app"

@@ -12,7 +12,7 @@
     {% if error %}
     <div class="flash error">{{ error }}</div>
     {% endif %}
-    <form method="post" class="stack">
+    <form method="post" class="stack" data-loading-title="Saving settings..." data-loading-subtitle="Updating workspace configuration.">
       <div class="field">
         <label>Workspace root</label>
         <input type="text" name="root" value="{{ root_text }}" placeholder="/path/to/MyNexusKnowledgeBase" />
@@ -37,7 +37,7 @@
       <div class="value-block">{{ workspace.paths.knowledge_dir }}</div>
     {% elif workspace %}
       <p>This folder exists, but Nexus hasn’t been initialized yet.</p>
-      <form method="post">
+      <form method="post" data-loading-title="Initializing workspace..." data-loading-subtitle="Creating folders and configuration files.">
         <button class="btn primary" type="submit" name="action" value="init">Initialize Workspace</button>
       </form>
     {% else %}

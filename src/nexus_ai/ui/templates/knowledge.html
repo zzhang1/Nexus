@@ -3,7 +3,7 @@
 {% block title %}Knowledge{% endblock %}
 
 {% block actions %}
-<form method="post">
+<form method="post" data-loading-title="Syncing..." data-loading-subtitle="Refreshing the Knowledge index.">
   <input type="hidden" name="action" value="sync" />
   <button class="btn ghost" type="submit">Sync Index</button>
 </form>

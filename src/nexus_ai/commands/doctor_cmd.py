@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 from nexus_ai.core.config import load_config, load_preferences, resolve_llm_settings
 from nexus_ai.core.db import NexusDb
+from nexus_ai.core.integrations import IntegrationRegistry
 from nexus_ai.core.workspace import Workspace, WorkspaceError
 
 console = Console()
@@ -47,6 +48,12 @@ def doctor(
         table.add_row("Config", "FAIL", f"{ws.paths.config_yaml}: {e}")
         console.print(table)
         raise typer.Exit(code=2)
+
+    try:
+        registry = IntegrationRegistry(cfg)
+        table.add_row("Integrations", "OK", f"mode={registry.mode}")
+    except Exception as e:
+        table.add_row("Integrations", "WARN", str(e))
 
     # Preferences
     try:

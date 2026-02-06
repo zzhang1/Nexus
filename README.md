@@ -118,10 +118,11 @@ Drag some files (PDFs, receipts, notes) into the `0_Inbox` folder created inside
 ```bash
 nexus ingest
 ```
-*Nexus will read the files, convert them to Markdown, file them into `Knowledge/`, archive the originals, and commit the changes to Git.*
+*Nexus will read the files, convert them to Markdown, file them into `Knowledge/`, move the originals into `Source/`, and commit the changes to Git.*
 
 You can also drop entire folders into `0_Inbox/`. Nexus will ingest files recursively and use the folder names as hints for where to file notes (PARA remains the top-level structure).
 When AI enrichment is enabled, Nexus also looks at existing Knowledge folder patterns and similar files to choose a destination and records a brief filing note under `Knowledge/3_Resources/Filing_Notes/`.
+Ingest runs in review mode by default: all proposed changes are shown with diffs, and nothing is applied unless you approve. If you decline, the files stay in `0_Inbox/`.
 
 If you manually edit Markdown files in `Knowledge/`, re-index with:
 ```bash
@@ -143,6 +144,7 @@ nexus chat "What should I do today?"
 Or use the planning views directly:
 ```bash
 nexus today
+nexus today --availability 09:00-17:00
 nexus week
 nexus month
 ```
@@ -170,11 +172,16 @@ This intent model is used both for interactive chat and CLI commands that proxy 
 }
 ```
 
-**Read-only tool actions (JSON):** the model can fetch context before editing, then return final actions.
+**Read-only tool calls (JSON):** the model can fetch context before editing, then return final actions. Tools use `mode: "tool"` with `tool_calls`.
 ```json
-{"type": "search", "query": "keyword", "limit": 8}
-{"type": "find_files", "query": "keyword", "limit": 20}
-{"type": "read_file", "path": "2_Areas/Home/Home.md", "max_chars": 4000}
+{"mode": "tool", "tool_calls": [{"id": "t1", "type": "search", "args": {"query": "keyword", "limit": 8}}]}
+{"mode": "tool", "tool_calls": [{"id": "t1", "type": "find_files", "args": {"query": "keyword", "limit": 20}}]}
+{"mode": "tool", "tool_calls": [{"id": "t1", "type": "list_files", "args": {"root": "Knowledge/", "recursive": true, "limit": 1000}}]}
+{"mode": "tool", "tool_calls": [{"id": "t1", "type": "read_file", "args": {"path": "2_Areas/Home/Home.md", "max_chars": 4000}}]}
+```
+Tool results are returned to the model as:
+```json
+{"tool_results": [{"id": "t1", "type": "search", "ok": true, "result": {"results": []}}]}
 ```
 
 ### Web UI (Local)
@@ -216,6 +223,7 @@ All commands accept `--root` / `-r` to point at a workspace (otherwise auto-disc
 ```bash
 nexus init --root /path/to/workspace
 nexus ingest
+nexus ingest --no-review
 nexus sync
 nexus doctor
 ```
@@ -223,6 +231,7 @@ nexus doctor
 **Planning & Tasks**
 ```bash
 nexus today
+nexus today --availability 09:00-17:00
 nexus week
 nexus month
 nexus tasks
@@ -242,8 +251,50 @@ nexus ui
 
 **Calendar**
 ```bash
+nexus integrations mode
+nexus integrations list
+nexus integrations set-mode write_enabled
+nexus calendar auth
+nexus calendar auth --write
 nexus calendar sync
+nexus calendar create --calendar-id primary --title "Focus block" --start "2026-02-10T09:00:00-05:00" --end "2026-02-10T10:00:00-05:00"
+nexus calendar update --source-id primary:EVENT_ID --title "Updated title" --event-type keep
+nexus calendar delete --source-id primary:EVENT_ID
 ```
+Google Calendar support (read-only sync) requires extra deps:
+```bash
+pip install .[gcal]
+```
+Set `calendar.google.client_secrets_path` (OAuth client JSON) in `.assistant/config.yaml`, then run `nexus calendar auth`.
+For create/update/delete commands, run `nexus calendar auth --write` to grant write scope.
+
+**Google Calendar Configuration (`.assistant/config.yaml`)**
+```yaml
+calendar:
+  ics_paths:
+    - "/absolute/path/to/personal.ics"
+
+  google:
+    enabled: true
+    client_secrets_path: "/absolute/path/to/google_client_secret.json"
+    token_path: ""               # optional; defaults to .assistant/google_calendar_token.json
+    calendar_ids:
+      - "primary"
+    sync_past_days: 30
+    sync_future_days: 365
+
+integrations:
+  mode: "read_only"           # read_only | write_enabled
+```
+
+**Google Calendar Write Notes**
+- `nexus calendar create|update|delete` are explicit write operations and require confirmation unless `--yes` is passed.
+- External writes are blocked unless `integrations.mode` is set to `write_enabled` (use `nexus integrations set-mode write_enabled`).
+- `nexus calendar update` accepts either `--source-id <calendar_id>:<event_id>` or both `--calendar-id` and `--event-id`.
+- `nexus calendar update --event-type` accepts `keep|all_day|timed`.
+- Calendar sync/write data is stored in `.assistant/nexus.db` (`events` table), and Google sync state is stored in `.assistant/google_calendar_sync.json`.
+- Write audits are logged under `.assistant/logs/` as `action_audit_calendar_write_*.json`.
+- The web UI `/calendar` page also supports create/update/delete with explicit approval checkboxes.
 
 **Outbox**
 ```bash
@@ -261,12 +312,12 @@ When you run `init`, Nexus creates this structure on your computer:
 /Your_Root_Folder/
 ├── .assistant/             # Database, Config, Preferences, Logs (Hidden)
 ├── 0_Inbox/                # Drop new files here
-├── Source/                 # Your ORIGINAL files (Immutable Archive)
+├── Source/                 # Original files after ingest (immutable)
 ├── Knowledge/              # AI-Managed Markdown Files (Git Repo)
 │   ├── 1_Projects/         # Active goals with deadlines
 │   ├── 2_Areas/            # Ongoing responsibilities
 │   ├── 3_Resources/        # Reference materials
 │   └── 4_Archive/          # Completed projects
 ├── Outbox/                 # Draft actions awaiting review
-└── Archive/                # Processed source files (Mirrors Knowledge structure)
+└── Archive/                # Reserved for future use (unused by ingest today)
 ```

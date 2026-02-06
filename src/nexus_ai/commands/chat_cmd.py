@@ -6,7 +6,6 @@ import typer
 from rich.console import Console
 
 from nexus_ai.commands.common import workspace_from_ctx
-from nexus_ai.core.chat import run_chat
 from nexus_ai.core.workspace import Workspace
 
 console = Console()
@@ -20,6 +19,8 @@ def chat(
     """
     Ask a question grounded in Knowledge/ and the local index.
     """
+
+    from nexus_ai.core.chat import run_chat
 
     ws = workspace_from_ctx(ctx, root)
     answer = run_chat(ws, query=query)

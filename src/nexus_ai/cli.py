@@ -10,6 +10,7 @@ from nexus_ai.commands.chat_cmd import chat
 from nexus_ai.commands.doctor_cmd import doctor
 from nexus_ai.commands.ingest_cmd import ingest
 from nexus_ai.commands.init_cmd import init
+from nexus_ai.commands.integrations_cmd import integrations_app
 from nexus_ai.commands.outbox_cmd import outbox_app
 from nexus_ai.commands.plan_cmd import today, week, month, tasks
 from nexus_ai.commands.sync_cmd import sync
@@ -48,6 +49,7 @@ app.command("month")(month)
 app.command("tasks")(tasks)
 
 app.add_typer(calendar_app, name="calendar", help="Calendar integrations (read-only by default).")
+app.add_typer(integrations_app, name="integrations", help="Integration connectors and capability modes.")
 app.add_typer(outbox_app, name="outbox", help="Manage staged deliverables in Outbox/.")
 
 if __name__ == "__main__":

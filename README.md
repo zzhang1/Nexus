@@ -41,7 +41,7 @@ Nexus AI is built with a modular, API-first philosophy using Python 3.10+.
 *   **Tooling:** External capabilities (calendar/email/web search) are exposed as tools and can be added incrementally.
 *   **Interfaces:** MVP starts as a CLI; a web app is planned after core workflows stabilize.
 
-Planned: upgrade retrieval from SQLite full-text search to GraphRAG (hybrid search with embeddings + entity graph). See `Design.md` and `MVP_CHECKLIST.md`.
+Planned: upgrade retrieval from SQLite full-text search to hybrid FTS5 + sqlite-vec embedding search (optionally adding graph traversal later). See `Design.md` and `MVP_CHECKLIST.md`.
 
 ---
 

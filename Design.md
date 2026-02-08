@@ -1,14 +1,14 @@
 1.  **Territory (Storage):** Markdown files in `Knowledge/`. (Human-readable, Git-versioned source of truth).
-2.  **Map (Compute):** A GraphRAG index (SQLite + Vector Store). (AI-optimized navigation layer).
+2.  **Map (Compute):** A hybrid retrieval index (SQLite + FTS5 + sqlite-vec embeddings). (AI-optimized navigation layer).
 3.  **Abstraction:** A strict `KnowledgeBaseInterface` that prevents the application logic from coupling with specific database technologies.
 
 
 
-# Project Specification: Nexus AI (GraphRAG Edition)
+# Project Specification: Nexus AI (Hybrid Retrieval Edition)
 
 **Role:** Expert Python Architect & Developer.
 **Goal:** Build a modular, local-first AI assistant CLI (MVP).
-**Architecture Pattern:** "Map vs. Territory". The system manages a user's files (Territory) and builds a derived GraphRAG index (Map) for retrieval.
+**Architecture Pattern:** "Map vs. Territory". The system manages a user's files (Territory) and builds a derived hybrid retrieval index (Map) for search.
 **Constraint:** The Knowledge Graph/Vector implementation must be strictly abstracted behind an interface to allow for future backend swaps.
 **Time-Awareness:** The system must understand time-based data (deadlines, events, recurrences) and answer queries like “What should I do today/this week?” using explicit temporal reasoning.
 **Knowledge Ownership:** The assistant must be able to create and edit Markdown files in `Knowledge/`, with all changes tracked in Git.
@@ -29,7 +29,7 @@ The application operates on a user-defined root.
 /User_Root/
 ├── .assistant/             # System Data
 │   ├── nexus.db            # SQLite (File Metadata + Relational Graph)
-│   ├── vector_store/       # Local Vector DB persistence (e.g., Chroma/Lance)
+│   ├── vector_store/       # Optional external vector store persistence (unused if sqlite-vec lives in nexus.db)
 │   ├── config.yaml         # User settings
 │   ├── preferences.yaml    # User preferences (timezone/planning defaults)
 │   └── logs/
@@ -135,17 +135,23 @@ The application logic must **never** talk directly to ChromaDB or SQLite for ret
 *   **`search(query)`**: Returns a list of relevant `Document` objects or text chunks based on hybrid search (Vector + Graph traversal).
 *   **`delete_document(path)`**: Handles cleanup of vectors and graph nodes when a file is removed.
 
-### Retrieval Roadmap (MVP → GraphRAG)
+### Retrieval Roadmap (MVP → Hybrid Embeddings → GraphRAG)
 **MVP (current):**
 *   Chunk Markdown content and store it in SQLite + FTS for fast keyword retrieval.
 *   Use structured tables (`tasks/events/deadlines`) for time-aware planning queries.
 
-**Planned GraphRAG upgrade:**
-*   **Vectors:** compute embeddings per chunk and store in a persistent vector store.
-*   **Graph:** extract entities/relationships into `nodes/edges` tables (or a graph backend) linked to source files and chunks.
-*   **Hybrid retrieval:** combine keyword search (FTS), vector similarity, and graph neighborhood expansion.
+**Planned hybrid embedding search (FTS5 + sqlite-vec):**
+*   **Enable sqlite-vec:** load the extension and create an `embeddings` table keyed by chunk IDs in `nexus.db`.
+*   **Chunk/embedding pipeline:** compute embeddings per chunk during ingest/sync; store vectors with model/version metadata.
+*   **Hybrid retrieval:** run FTS5 keyword search and sqlite-vec vector similarity; merge, de-dupe, and re-rank.
+*   **Quality controls:** prefer lexical matches for exact phrases, fallback to FTS5 when embeddings are missing, and cache query embeddings.
+*   **Rebuildability:** treat embeddings as derived from Markdown; allow full rebuilds when models change.
+
+**Later GraphRAG upgrade:**
+*   **Graph:** extract entities/relationships into `nodes/edges` tables linked to source files and chunks.
+*   **Graph expansion:** enrich candidate chunks with 1-hop neighbor retrieval.
+*   **Hybrid retrieval:** combine FTS5 + sqlite-vec + graph neighborhood expansion.
 *   **Re-ranking + citations:** score retrieved context, dedupe, and produce answers/plans with file citations.
-*   **Rebuildability:** treat embeddings/graph as derived; they can be rebuilt from `Knowledge/` at any time.
 
 ## Backlog (Ideas to Consider)
 These are product/UX patterns seen in modern assistants that fit Nexus’s “persistent knowledge + approval-first edits” philosophy.
@@ -208,7 +214,7 @@ Before proposing edits, the model may request read-only tools using `mode: "tool
 *   **Ingestion:** `markitdown` (Text Extraction).
 *   **Vector/Graph Store:**
     *   *Interface:* Abstract Python Class.
-    *   *Implementation (MVP):* `chromadb` (Vectors) + `sqlite3` (Graph Edges/Metadata).
+    *   *Implementation (MVP):* `sqlite3` + FTS5 for lexical search, with `sqlite-vec` planned for embeddings in the same `nexus.db`.
 *   **Graph Logic:** `networkx` (Optional, for in-memory traversal algorithms).
 *   **Version Control:** `GitPython`.
 *   **Integrations:** MCP clients and/or provider APIs for calendar, email, contacts, and task sources (Google Calendar, Outlook, CalDAV, IMAP, etc.).
@@ -248,13 +254,14 @@ defaults:
     ```
 
 **1.3 The Concrete Implementation (`src/nexus_ai/knowledge_base/simple_rag.py`)**
-*   Implement `SimpleGraphRAG` inheriting from the interface.
-*   **Vector Store:** Initialize `chromadb.PersistentClient` in `.assistant/vector_store`.
-*   **Relational Store:** Initialize `sqlite3` in `.assistant/nexus.db` with tables:
-    *   `nodes` (id, label, type, source_file)
-    *   `edges` (source, target, relation)
+*   Implement `SimpleHybridSearch` inheriting from the interface.
+*   **SQLite Store:** Initialize `sqlite3` in `.assistant/nexus.db` with:
+    *   `chunks` (id, file_path, content, metadata)
+    *   `chunks_fts` (FTS5 virtual table for lexical search)
+    *   `embeddings` (sqlite-vec table keyed by chunk id, vector, model metadata)
 *   **Logic:**
-    *   `upsert`: Chunk text -> Embed (via `litellm.embedding`) -> Store in Chroma. AND -> Extract Entities (via LLM) -> Store in SQLite `nodes`/`edges`.
+    *   `upsert`: Chunk text -> Store in `chunks` + `chunks_fts`; compute embeddings (via `litellm.embedding`) and store vectors via sqlite-vec.
+    *   **Graph (later):** Extract entities and store in `nodes`/`edges` tables for graph expansion.
 
 ### Phase 2: Ingestion Pipeline (`src/nexus_ai/ingest.py`)
 
@@ -280,7 +287,8 @@ defaults:
 
 **3.1 Retrieval Augmented Generation**
 *   **Step A (Search):** Call `knowledge_engine.query(user_input)`.
-    *   *MVP Implementation:* Perform vector search for relevant chunks. Then, perform a quick SQL query to find nodes connected to those chunks (1-hop neighbor retrieval).
+    *   *MVP Implementation:* Perform FTS5 keyword search for relevant chunks.
+    *   *Planned Hybrid:* Combine FTS5 with sqlite-vec vector similarity, then re-rank and de-dupe.
     *   **Time window retrieval:** If query implies a time range (today/this week), fetch events/deadlines within that window.
     *   **Task retrieval:** For planning queries, pull tasks by due date/status and link back to their source notes.
 *   **Step B (Synthesize):** Construct System Prompt.
@@ -301,7 +309,7 @@ defaults:
 *   `nexus init`: Setup folders, DBs, and default Config.
 *   `nexus ingest`: Run the pipeline on `0_Inbox`.
 *   `nexus chat [query]`: Run the RAG loop.
-*   `nexus sync`: Detect changes in `Knowledge/` (and `Source/` where relevant) and update the GraphRAG + structured stores idempotently.
+*   `nexus sync`: Detect changes in `Knowledge/` (and `Source/` where relevant) and update the retrieval index + structured stores idempotently.
 *   `nexus calendar sync`: Pull calendar events from integrations and update `events`.
 *   `nexus today|week|month`: Summarize across tasks, deadlines, and events; optionally propose time blocks.
 *   `nexus outbox list|open|approve|delete`: Manage staged deliverables.

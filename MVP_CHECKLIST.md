@@ -11,7 +11,7 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
 
 ## 1) Workspace Initialization (`nexus init`)
 - [x] Implement `nexus init --root <path>` creating:
-  - `.assistant/` (`nexus.db`, `vector_store/`, `config.yaml`, `preferences.yaml`, `logs/`)
+  - `.assistant/` (`nexus.db`, `vector_store/` optional, `config.yaml`, `preferences.yaml`, `logs/`)
   - `0_Inbox/`, `Source/`, `Knowledge/`, `Archive/`, `Outbox/`
   - `Knowledge/1_Projects`, `Knowledge/2_Areas`, `Knowledge/3_Resources`, `Knowledge/4_Archive`
 - [x] Initialize Git repo in `Knowledge/` (or ensure existing repo is supported).
@@ -27,16 +27,20 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
   - keep edits reversible and avoid rewriting note bodies unless requested
 - [x] Add a small Markdown writer utility (safe file creation + atomic writes).
 
-## 3) Local DB Schema (Map: GraphRAG + Structured Time Items)
+## 3) Local DB Schema (Map: Hybrid Retrieval + Structured Time Items)
 - [x] Create SQLite schema migrations (even if simple) for:
   - documents/files (path, hash, modified time, front matter fields)
   - `tasks` (id, title, status, due_ts, priority, effort, created_ts, completed_ts, source_path, source_anchor)
   - `events` (id, title, start_ts, end_ts, timezone, all_day, rrule/recurrence_rule, source, source_id, status)
   - `deadlines` (id, title, due_ts, timezone, source, source_id, status)
-- [x] Create vector store initialization (persisted under `.assistant/vector_store/`). (Placeholder directory only.)
+- [x] Create vector store initialization (placeholder). Prefer sqlite-vec tables in `nexus.db` for embeddings; keep `.assistant/vector_store/` only if external stores are used.
 - [x] Wrap DB + vector operations behind interfaces used by the app (no direct coupling from CLI handlers).
+- [ ] Hybrid embedding search upgrade (later):
+  - add vector embeddings stored via sqlite-vec in `nexus.db`
+  - add hybrid retrieval (FTS5 + vector similarity)
+  - add query re-ranking and caching
+  - ensure embeddings are rebuildable from Markdown
 - [ ] GraphRAG upgrade (later):
-  - add vector embeddings + persistent vector store
   - add entity extraction + graph tables (`nodes`, `edges`)
   - hybrid retrieval (FTS + vector + graph neighbors)
   - context assembly with relevance scores/citations
@@ -60,7 +64,7 @@ Use this as a sequential checklist for a coding agent. It assumes the canonical 
   - retrieve nearest neighbors for new documents (heuristic for now; vector-based later)
   - have LLM choose destination folder + tags
   - auto-file and record a brief filing note (where/why)
-- [ ] Advanced filing (depends on GraphRAG vectors/graph):
+- [ ] Advanced filing (depends on embedding similarity + graph expansion):
   - embedding-based nearest neighbor retrieval for filing
   - explicit pattern detection (e.g., monthly statements, recurring vendors)
   - re-ranking based on similarity + folder/tag consistency
